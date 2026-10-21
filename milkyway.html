@@ -1,0 +1,2747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- This site is hosted on Netlify. Anyone can build and deploy a site
+     like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=47dc36ec-e281-4093-8e2d-49a4e7429c86
+     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guardian of the Milky Way</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#05070d;
+    --deep:#070b14;
+    --panel:#0b1424;
+    --panel-alt:#101c33;
+    --line:#1c2b45;
+    --line-bright:#2a4066;
+    --cyan:#4ff0ff;
+    --cyan-dim:#2a8a99;
+    --magenta:#ff3d81;
+    --magenta-dim:#99204f;
+    --amber:#ffb84d;
+    --green:#4dff9f;
+    --text:#d7e6ff;
+    --text-dim:#8095b8;
+    --text-faint:#4a5978;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--void);}
+  body{
+    font-family:'Rajdhani',sans-serif;
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.mono,.orbitron{font-family:'Orbitron',sans-serif;}
+
+  #game{position:fixed;inset:0;display:block;background:var(--void);}
+
+  #scanlines{
+    position:fixed;inset:0;pointer-events:none;z-index:60;
+    background:repeating-linear-gradient(180deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 2px, transparent 4px);
+    mix-blend-mode:overlay;
+  }
+  #vignette{
+    position:fixed;inset:0;pointer-events:none;z-index:59;
+    box-shadow:inset 0 0 180px rgba(0,0,0,0.85);
+  }
+
+  /* Persistent bottom-left link to the GitHub repo. Sits above the scanline/
+     vignette overlays (z-index 59/60) so it's never obscured, but keeps a
+     small footprint so it doesn't get in the way of gameplay. Change REPO_URL
+     below (in the <a href>) if the repo ever moves. */
+  #repoLink{
+    position:fixed;
+    left:14px; bottom:12px;
+    z-index:70;
+    font-family:'Orbitron',sans-serif;
+    font-size:11px;
+    letter-spacing:0.05em;
+    color:var(--text-faint);
+    text-decoration:none;
+    padding:6px 10px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:rgba(7,11,20,0.55);
+    pointer-events:auto; /* only this element is clickable; everything else stays click-through */
+    transition:color 0.15s ease, border-color 0.15s ease;
+  }
+  #repoLink:hover{
+    color:var(--cyan);
+    border-color:var(--cyan-dim);
+  }
+
+  #ui{position:fixed;inset:0;z-index:10;pointer-events:none;}
+  .screen{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:auto;}
+  .screen.active{display:flex;}
+
+  ::selection{background:var(--cyan);color:#000;}
+
+  /* ---------- shared components ---------- */
+  .panel{
+    background:linear-gradient(180deg, rgba(16,28,51,0.88), rgba(9,15,28,0.92));
+    border:1px solid var(--line);
+    clip-path:polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+    box-shadow:0 0 0 1px rgba(79,240,255,0.04) inset, 0 0 30px rgba(79,240,255,0.05);
+    position:relative;
+  }
+  .eyebrow{
+    font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:3px;color:var(--text-faint);
+    text-transform:uppercase;
+  }
+  .btn{
+    font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;
+    background:transparent;color:var(--cyan);border:1px solid var(--cyan-dim);
+    padding:12px 22px;cursor:pointer;
+    clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+    transition:all .15s ease;
+  }
+  .btn:hover:not(:disabled){background:rgba(79,240,255,0.1);border-color:var(--cyan);box-shadow:0 0 18px rgba(79,240,255,0.25);}
+  .btn:disabled{color:var(--text-faint);border-color:var(--line);cursor:not-allowed;opacity:.6;}
+  .btn-primary{background:rgba(79,240,255,0.12);border-color:var(--cyan);}
+  .btn-primary:hover:not(:disabled){background:rgba(79,240,255,0.22);}
+  .btn-small{padding:8px 14px;font-size:11px;letter-spacing:1.5px;}
+
+  /* ---------- title screen ---------- */
+  #screen-title{flex-direction:column;gap:26px;text-align:center;padding:0 24px;}
+  .title-logo{
+    /* Longer titles wrap to 2-3 lines on narrow screens — font-size floor and letter-spacing
+       are both smaller than the old single-word logo used, and line-height/margin keep multi-line
+       titles from colliding with the subtitle below (see .title-sub). Tune freely per-title. */
+    font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(28px,7vw,76px);
+    letter-spacing:4px;line-height:1.15;color:var(--cyan);margin:0;
+    text-shadow:0 0 8px rgba(79,240,255,0.8), 0 0 24px rgba(79,240,255,0.5), 0 0 60px rgba(79,240,255,0.3);
+  }
+  .title-sub{color:var(--text-dim);letter-spacing:4px;font-size:14px;text-transform:uppercase;margin-top:4px;}
+  .keycap-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:8px;}
+  .keycap-item{display:flex;align-items:center;gap:8px;color:var(--text-dim);font-size:13px;letter-spacing:1px;}
+  .keycap{
+    font-family:'Orbitron',sans-serif;font-size:12px;color:var(--text);
+    border:1px solid var(--line-bright);background:var(--panel-alt);
+    padding:6px 10px;min-width:14px;text-align:center;
+    clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);
+  }
+
+  /* ---------- auth screen ---------- */
+  #screen-auth{flex-direction:column;text-align:center;padding:0 24px;}
+  .auth-panel{width:100%;max-width:380px;padding:30px;text-align:left;}
+  .auth-title{font-size:18px;letter-spacing:4px;color:var(--cyan);margin:0 0 6px;}
+  .auth-sub{color:var(--text-dim);font-size:13px;margin-bottom:20px;line-height:1.5;}
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{display:block;font-size:11px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin-bottom:6px;}
+  .auth-field input{
+    width:100%;background:var(--panel-alt);border:1px solid var(--line-bright);color:var(--text);
+    font-family:'Rajdhani',sans-serif;font-size:15px;padding:11px 12px;
+    clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  }
+  .auth-field input:focus{outline:none;border-color:var(--cyan);}
+  .auth-actions{display:flex;gap:10px;margin-top:20px;}
+  .auth-actions .btn{flex:1;}
+  .auth-msg{margin-top:14px;font-size:13px;min-height:18px;line-height:1.4;}
+  .auth-msg.error{color:var(--magenta);}
+  .auth-msg.ok{color:var(--green);}
+  .auth-guest{margin-top:18px;font-size:12px;color:var(--text-faint);text-align:center;}
+  .auth-guest a{color:var(--text-dim);cursor:pointer;text-decoration:underline;}
+
+  /* ---------- hangar screen ---------- */
+  #screen-hangar{align-items:stretch;justify-content:stretch;}
+  .hangar-wrap{width:100%;height:100%;display:flex;flex-direction:column;padding:22px;gap:16px;}
+  .hangar-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+  .hangar-title{font-size:20px;letter-spacing:6px;color:var(--cyan);margin:0;}
+  .credits-pill{
+    font-family:'Orbitron',sans-serif;font-size:15px;letter-spacing:1px;color:var(--amber);
+    border:1px solid rgba(255,184,77,0.4);background:rgba(255,184,77,0.06);
+    padding:9px 18px;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  }
+  .hangar-header-right{display:flex;align-items:center;gap:12px;}
+  .pilot-tag{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+  .hangar-body{flex:1;display:grid;grid-template-columns:320px 1fr;gap:16px;min-height:0;}
+  .col{display:flex;flex-direction:column;gap:16px;min-height:0;}
+
+  #missionListPanel{padding:16px;overflow-y:auto;flex:1;min-height:0;}
+  #missionList{display:flex;flex-direction:column;gap:8px;}
+  .mission-item{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:var(--panel-alt);border:1px solid var(--line);color:var(--text);
+    padding:10px 12px;cursor:pointer;font-family:'Rajdhani',sans-serif;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  }
+  .mission-item:hover:not(:disabled){border-color:var(--cyan-dim);}
+  .mission-item.selected{border-color:var(--cyan);box-shadow:0 0 14px rgba(79,240,255,0.2);}
+  .mission-item:disabled{opacity:.45;cursor:not-allowed;}
+  .mission-num{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--text-faint);}
+  .mission-name{flex:1;font-weight:600;font-size:15px;}
+  .mission-status{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px;color:var(--green);}
+  .mission-item.locked .mission-status{color:var(--text-faint);}
+
+  #missionDetail{padding:18px 20px;flex-shrink:0;}
+  .detail-name{font-family:'Orbitron',sans-serif;font-size:18px;color:var(--cyan);letter-spacing:1px;margin-bottom:6px;}
+  .detail-brief{color:var(--text-dim);font-size:15px;margin-bottom:12px;line-height:1.4;}
+  .detail-obj,.detail-reward{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:6px;}
+  .detail-reward{color:var(--amber);}
+  #launchBtn{margin-top:10px;}
+
+  .ship-and-upgrades{flex:1;display:grid;grid-template-columns:240px 1fr;gap:16px;min-height:0;}
+  #blueprintPanel{display:flex;align-items:center;justify-content:center;padding:10px;}
+  #blueprintCanvas{width:100%;height:100%;display:block;}
+
+  #upgradesPanel{padding:16px;overflow-y:auto;}
+  .upgrade-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+  .upgrade-card{
+    background:var(--panel-alt);border:1px solid var(--line);padding:14px;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .upgrade-name{font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:1px;color:var(--cyan);}
+  .upgrade-stat{font-size:13px;color:var(--text-dim);}
+  .pip-row{display:flex;gap:5px;margin:4px 0;}
+  .pip{width:18px;height:6px;background:var(--line);}
+  .pip.filled{background:var(--cyan);box-shadow:0 0 6px rgba(79,240,255,0.6);}
+  .upgrade-next{font-size:12px;color:var(--text-faint);}
+  .upgrade-cost{color:var(--amber);}
+  .weapon-card.owned{border-color:rgba(79,240,255,0.35);}
+  /* Small round swatch showing a weapon's WEAPONS[...].color — set inline via style="--dot:...",
+     used by both the shop cards (.upgrade-name) and the loadout chips below, so the in-flight
+     bolt/missile/mine color is recognizable before you ever equip it. */
+  .weapon-dot{
+    display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;
+    background:var(--dot,var(--cyan));box-shadow:0 0 5px var(--dot,var(--cyan));
+    vertical-align:middle;position:relative;top:-1px;
+  }
+
+  /* ---------- weapon loadout (primary/secondary slot picker) ---------- */
+  .loadout-row{display:flex;gap:16px;flex-wrap:wrap;}
+  .loadout-slot{flex:1;min-width:220px;}
+  .loadout-slot-label{font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:6px;}
+  .loadout-chip-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .loadout-chip{
+    background:var(--panel-alt);border:1px solid var(--line);color:var(--text-dim);
+    font-family:'Rajdhani',sans-serif;font-size:13px;padding:6px 10px;cursor:pointer;
+  }
+  .loadout-chip.active{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 6px rgba(79,240,255,0.4);}
+  .loadout-chip:hover{border-color:var(--cyan);}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;z-index:20;pointer-events:none;font-family:'Orbitron',sans-serif;}
+  #hud.hidden{display:none;}
+  .hud-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:20px 26px;}
+  .hud-objective{
+    background:rgba(9,15,28,0.7);border:1px solid var(--line);padding:10px 16px;
+    font-size:12px;letter-spacing:1.5px;color:var(--text);
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  }
+  .hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+  .hud-lives{display:flex;gap:6px;}
+  .life-icon{color:var(--cyan);font-size:16px;text-shadow:0 0 6px rgba(79,240,255,0.8);}
+  .life-icon.spent{color:var(--text-faint);text-shadow:none;opacity:.3;}
+  .hud-shield{display:flex;gap:6px;}
+  .hud-shield.hidden{display:none;}
+  .shield-icon{color:#7fd7ff;font-size:14px;text-shadow:0 0 6px rgba(127,215,255,0.8);}
+  .shield-icon.spent{color:var(--text-faint);text-shadow:none;opacity:.3;}
+  .hud-missile{
+    background:rgba(9,15,28,0.7);border:1px solid var(--line);padding:6px 14px;
+    font-size:11px;letter-spacing:1.5px;color:var(--text-faint);
+    clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  }
+  .hud-missile.ready{color:var(--amber);border-color:rgba(255,184,77,0.4);}
+  .hud-missile.hidden{display:none;}
+  .hud-timer{
+    background:rgba(9,15,28,0.7);border:1px solid var(--line);padding:6px 14px;
+    font-size:13px;color:var(--amber);letter-spacing:1px;
+    clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  }
+  .hud-timer.hidden{display:none;}
+  .hud-hint{
+    position:absolute;bottom:18px;left:0;right:0;text-align:center;
+    font-size:11px;letter-spacing:2px;color:var(--text-faint);
+  }
+
+  /* ---------- arena HUD ----------
+     Structurally a clone of #hud above (same hud-top/hud-lives/hud-hint classes) so it
+     reuses those rules; only the arena-specific pieces (kill feed, leaderboard) are new. */
+  #arenaHud{position:fixed;inset:0;z-index:20;pointer-events:none;font-family:'Orbitron',sans-serif;}
+  #arenaHud.hidden{display:none;}
+  .arena-killfeed{
+    position:absolute;top:82px;left:50%;transform:translateX(-50%);
+    display:flex;flex-direction:column;gap:4px;align-items:center;
+    font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--text-dim);
+    text-shadow:0 0 6px rgba(0,0,0,0.9);
+  }
+  .arena-leaderboard{
+    position:absolute;top:70px;right:26px;width:200px;padding:12px 14px;
+    font-family:'Rajdhani',sans-serif;font-size:13px;display:flex;flex-direction:column;gap:6px;
+  }
+  .arena-leaderboard .eyebrow{margin-bottom:2px;}
+  .lb-row{display:flex;justify-content:space-between;color:var(--text-dim);}
+  .lb-empty{color:var(--text-faint);font-size:12px;}
+
+  /* ---------- end screen ---------- */
+  .end-card{width:min(460px,90vw);padding:38px 34px;text-align:center;}
+  .end-title{font-family:'Orbitron',sans-serif;font-size:26px;letter-spacing:3px;margin-bottom:14px;}
+  .end-title.success{color:var(--green);text-shadow:0 0 18px rgba(77,255,159,0.5);}
+  .end-title.fail{color:var(--magenta);text-shadow:0 0 18px rgba(255,61,129,0.5);}
+  .end-mission{color:var(--text-dim);font-size:15px;margin-bottom:18px;}
+  .end-credits{font-family:'Orbitron',sans-serif;font-size:15px;color:var(--amber);letter-spacing:1px;margin-bottom:26px;}
+
+  @media (max-width:820px){
+    .hangar-body{grid-template-columns:1fr;}
+    .ship-and-upgrades{grid-template-columns:1fr;}
+    .upgrade-grid{grid-template-columns:1fr;}
+    #blueprintPanel{height:160px;}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+<div id="vignette"></div>
+<div id="scanlines"></div>
+<a id="repoLink" href="https://github.com/EvilEyeDude/GuardianOfTheMilkyWay" target="_blank" rel="noopener">GitHub ↗</a>
+
+<div id="ui">
+
+  <section id="screen-auth" class="screen">
+    <div class="panel auth-panel">
+      <h2 class="auth-title">PILOT LOGIN</h2>
+      <div class="auth-sub">Sign in to save your credits, upgrades, and mission progress across sessions.</div>
+      <div class="auth-field">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" autocomplete="email" placeholder="you@example.com">
+      </div>
+      <div class="auth-field">
+        <label for="authPassword">Password</label>
+        <input type="password" id="authPassword" autocomplete="current-password" placeholder="At least 6 characters">
+      </div>
+      <div class="auth-actions">
+        <button id="authSignInBtn" class="btn btn-primary">Sign In</button>
+        <button id="authSignUpBtn" class="btn">Create Account</button>
+      </div>
+      <div class="auth-msg" id="authMsg"></div>
+      <div class="auth-guest">or <a id="authGuestLink">play as guest — progress won't be saved</a></div>
+    </div>
+  </section>
+
+  <section id="screen-title" class="screen">
+    <div>
+      <h1 class="title-logo">GUARDIAN OF THE MILKY WAY</h1>
+      <div class="title-sub">Fly missions · earn credits · upgrade your ship</div>
+      <div class="keycap-row">
+        <div class="keycap-item"><span class="keycap">W</span> Thrust</div>
+        <div class="keycap-item"><span class="keycap">A</span>/<span class="keycap">D</span> Rotate</div>
+        <div class="keycap-item"><span class="keycap">Space</span> Fire</div>
+        <div class="keycap-item"><span class="keycap">Shift</span> Missile</div>
+        <div class="keycap-item"><span class="keycap">Esc</span> Abort mission</div>
+      </div>
+      <div style="margin-top:32px;display:flex;gap:14px;justify-content:center;">
+        <button id="startBtn" class="btn btn-primary">Enter Hangar</button>
+        <!-- Hidden at boot when AUTH_ENABLED is false (see boot() near the bottom of the
+             script) — the arena needs the same Supabase project as cloud saves for Realtime
+             sync and the kill leaderboard, so it can't work without it. -->
+        <button id="arenaBtn" class="btn">PvP Arena</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-hangar" class="screen">
+    <div class="hangar-wrap">
+      <div class="hangar-header">
+        <h2 class="hangar-title">HANGAR</h2>
+        <div class="hangar-header-right">
+          <div class="pilot-tag" id="pilotTag"></div>
+          <div class="credits-pill" id="hangarCredits">0 CR</div>
+        </div>
+      </div>
+      <div class="hangar-body">
+        <div class="col">
+          <div class="panel" id="missionListPanel">
+            <div class="eyebrow" style="margin-bottom:10px;">Mission Roster</div>
+            <div id="missionList"></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="panel" id="missionDetail"></div>
+          <div class="ship-and-upgrades">
+            <div class="panel" id="blueprintPanel">
+              <canvas id="blueprintCanvas" width="220" height="260"></canvas>
+            </div>
+            <div class="panel" id="upgradesPanel">
+              <div class="eyebrow" style="margin-bottom:10px;">Loadout</div>
+              <div class="loadout-row" id="loadoutRow"></div>
+              <div class="eyebrow" style="margin:16px 0 10px;">Weapons Shop</div>
+              <div class="upgrade-grid" id="weaponShopGrid"></div>
+              <div class="eyebrow" style="margin:16px 0 10px;">Ship Systems</div>
+              <div class="upgrade-grid" id="upgradeGrid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-end" class="screen">
+    <div class="panel end-card">
+      <div class="end-title">MISSION COMPLETE</div>
+      <div class="end-mission"></div>
+      <div class="end-credits"></div>
+      <button id="endHangarBtn" class="btn btn-primary">Return to Hangar</button>
+    </div>
+  </section>
+
+</div>
+
+<div id="hud" class="hidden">
+  <div class="hud-top">
+    <div class="hud-objective" id="hudObjective">OBJECTIVE</div>
+    <div class="hud-right">
+      <div class="hud-lives" id="hudLives"></div>
+      <div class="hud-shield hidden" id="hudShield"></div>
+      <div class="hud-missile hidden" id="hudMissile">MISSILES READY</div>
+      <div class="hud-timer hidden" id="hudTimer">0s</div>
+    </div>
+  </div>
+  <div class="hud-hint" id="hudHint">W THRUST · A/D ROTATE · SPACE FIRE · ESC ABORT</div>
+</div>
+
+<div id="arenaHud" class="hidden">
+  <div class="hud-top">
+    <div class="hud-objective" id="arenaPlayerCount">1 PILOT ONLINE</div>
+    <div class="hud-right">
+      <div class="hud-lives" id="arenaHealth"></div>
+      <div class="hud-shield hidden" id="arenaShield"></div>
+      <div class="hud-missile hidden" id="arenaMissileStatus">MISSILES READY</div>
+      <div class="hud-missile ready" id="arenaMyKills">KILLS: 0</div>
+    </div>
+  </div>
+  <div class="arena-killfeed" id="arenaKillFeed"></div>
+  <div class="panel arena-leaderboard">
+    <div class="eyebrow">Leaderboard</div>
+    <div id="arenaLeaderboard"></div>
+  </div>
+  <div class="hud-hint" id="arenaHint">W THRUST · A/D ROTATE · SPACE FIRE · ESC EXIT ARENA</div>
+</div>
+
+<!-- Supabase client library — only used for the optional cloud-save/account system below.
+     If you remove this tag and leave SUPABASE_URL/SUPABASE_KEY unset, the game runs exactly
+     as before with no accounts and no network calls. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+/* =====================================================================
+   GUARDIAN OF THE MILKY WAY — self-contained HTML5 canvas game
+   ===================================================================== */
+
+/* ---------------------------- canvas / dpr ---------------------------- */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  initStars();
+}
+window.addEventListener('resize', resize);
+
+/* ---------------------------- input ---------------------------- */
+const keys = new Set();
+
+// Maps alternate keys to the "canonical" game key they should behave like.
+// This lets the arrow keys drive the ship exactly like WASD without touching
+// any of the movement/firing logic below (which only ever checks for
+// KeyW/KeyA/KeyD/etc). To support another alternate control scheme, just add
+// another entry here: 'RealCode': 'CanonicalCode'.
+const KEY_ALIASES = {
+  ArrowUp:    'KeyW', // thrust forward
+  ArrowLeft:  'KeyA', // rotate left
+  ArrowRight: 'KeyD', // rotate right
+  ArrowDown:  'KeyS', // reserved for reverse thrust, unused currently but mapped for consistency
+};
+
+// Keys that should stop the browser's default behavior (e.g. page scrolling
+// on arrow keys, or scrolling on Space) while the game is capturing input.
+const PREVENT_DEFAULT_CODES = [
+  'KeyW','KeyA','KeyD','Space','ShiftLeft','ShiftRight',
+  'ArrowUp','ArrowLeft','ArrowRight','ArrowDown',
+];
+
+window.addEventListener('keydown', e=>{
+  if(PREVENT_DEFAULT_CODES.includes(e.code)) e.preventDefault();
+  keys.add(e.code);
+  if(KEY_ALIASES[e.code]) keys.add(KEY_ALIASES[e.code]); // also register the canonical key
+  if(e.code==='Escape') handleEscape();
+});
+window.addEventListener('keyup', e=>{
+  keys.delete(e.code);
+  if(KEY_ALIASES[e.code]) keys.delete(KEY_ALIASES[e.code]); // release the canonical key too
+});
+
+/* ---------------------------- utility ---------------------------- */
+function rand(a,b){ return a + Math.random()*(b-a); }
+function dist2(a,b){
+  const dx=wrapDelta(a.x,b.x,canvas.width), dy=wrapDelta(a.y,b.y,canvas.height);
+  return dx*dx+dy*dy;
+}
+function wrap(pos,max){ if(pos<0) return pos+max; if(pos>max) return pos-max; return pos; }
+function wrapDelta(a,b,max){ let d=b-a; if(d>max/2) d-=max; if(d<-max/2) d+=max; return d; }
+function filterInPlace(arr, keepFn){ let w=0; for(let i=0;i<arr.length;i++){ if(keepFn(arr[i])) arr[w++]=arr[i]; } arr.length=w; }
+
+/* ---------------------------- config ---------------------------- */
+const UPGRADE_TRACKS = {
+  engine:{
+    name:'Engine',
+    levels:[
+      {thrust:230, maxSpeed:300, turnSpeed:3.2, cost:0},
+      {thrust:270, maxSpeed:340, turnSpeed:3.6, cost:120},
+      {thrust:310, maxSpeed:380, turnSpeed:4.0, cost:220},
+      {thrust:360, maxSpeed:430, turnSpeed:4.5, cost:380},
+      {thrust:500, maxSpeed:500, turnSpeed:4.5, cost:10000},
+    ],
+    desc:l=>`Thrust ${l.thrust} · Max speed ${l.maxSpeed}`,
+  },
+  hull:{
+    name:'Hull',
+    levels:[
+      {maxLives:3, invuln:1.6, cost:0},
+      {maxLives:4, invuln:1.8, cost:150},
+      {maxLives:5, invuln:2.0, cost:260},
+      {maxLives:6, invuln:2.2, cost:400},
+      {maxLives:10, invuln:2.5, cost:10000},
+    ],
+    desc:l=>`Lives ${l.maxLives} · Invuln ${l.invuln.toFixed(1)}s`,
+  },
+  shield:{
+    name:'Shields',
+    levels:[
+      {maxCharges:0, regenTime:0,   cost:0},
+      {maxCharges:1, regenTime:10, cost:180},
+      {maxCharges:2, regenTime:9, cost:320},
+      {maxCharges:3, regenTime:8, cost:480},
+      {maxCharges:4, regenTime:7, cost:10000},
+    ],
+    desc:l=> l.maxCharges===0 ? 'No shield generator installed' : `Charges ${l.maxCharges} · Regen ${l.regenTime.toFixed(1)}s`,
+  },
+};
+
+/* ---------------------------- weapon shop ----------------------------
+   Weapons are no longer leveled up along a single ladder — each entry below is a standalone,
+   one-time purchase (see game.upgrades.ownedWeapons). Once owned, a weapon can be freely
+   equipped to EITHER the primary (Space) or secondary (Shift) slot — see
+   game.upgrades.equipped and Ship.stats/Ship.update() below. A weapon's `type` decides what
+   actually gets fired when it's equipped (see fireWeaponShots()):
+     'ballistic' -> spawns Bullet(s): simple hit-scan-style projectiles, no splash.
+     'explosive' -> spawns Missile(s): splash damage on impact/expiry, optionally `homing`.
+     'mine'      -> drops a stationary Mine behind the ship that arms, then detonates on
+                    proximity (see the Mine class further down).
+   `count` + `spreadAngle` (radians, total arc) fan multiple projectiles from a single shot —
+   used by Twin Blaster, Scatter Cannon, Twin Missile Rack and Cluster Rocket. A weapon with
+   count:1 ignores spreadAngle entirely.
+   To add a new weapon: add an entry here. No other code needs to change UNLESS you're
+   introducing a genuinely new `type` (a future beam weapon, for example, needs its own
+   continuous-fire/line-collision logic — deliberately not attempted here, see project notes). */
+// `color` is the ONE source of truth for a weapon's visual identity — it drives the bolt/
+// missile/mine sprite, its glow, muzzle-flash particles, and the shop/loadout UI swatches, all
+// read straight from here (see fireWeaponShots, drawBullet/drawMissile/drawMine call sites, and
+// renderLoadout/renderWeaponShop below). Change a hex here and every one of those updates
+// automatically — no other place in the file hardcodes a per-weapon color.
+const WEAPONS = {
+  pulse_cannon:{
+    name:'Pulse Cannon', type:'ballistic', cost:0, color:'#4ff0ff',
+    cooldown:0.38, bulletSpeed:520, damage:1, count:1,
+    desc:'Fire rate 2.6/s · Damage 1 — reliable starter sidearm.',
+  },
+  rapid_autocannon:{
+    name:'Rapid Autocannon', type:'ballistic', cost:250, color:'#4dff9f',
+    cooldown:0.16, bulletSpeed:700, damage:1, count:1,
+    desc:'Fire rate 6.3/s · Damage 1 — high rate of fire, good vs swarms.',
+  },
+  twin_blaster:{
+    name:'Twin Blaster', type:'ballistic', cost:320, color:'#4d94ff',
+    cooldown:0.30, bulletSpeed:560, damage:1, count:2, spreadAngle:0.10,
+    desc:'Fire rate 3.3/s · Damage 1×2 — fires a tight pair of bolts per shot.',
+  },
+  scatter_cannon:{
+    name:'Scatter Cannon', type:'ballistic', cost:340, color:'#c9ff4d',
+    cooldown:1.0, bulletSpeed:520, damage:1, count:5, spreadAngle:0.70,
+    desc:'Fire rate 1/s · Damage 1×5 — wide 40° fan, devastating up close.',
+  },
+  plasma_lance:{
+    name:'Plasma Lance', type:'ballistic', cost:500, color:'#c04dff',
+    cooldown:0.50, bulletSpeed:700, damage:3, count:1,
+    desc:'Fire rate 2.0/s · Damage 3 — slower, hits hard, fast bolt.',
+  },
+  railgun:{
+    name:'Railgun', type:'ballistic', cost:650, color:'#ffffff',
+    cooldown:0.65, bulletSpeed:950, damage:5, count:1,
+    desc:'Fire rate 1.5/s · Damage 5 — heaviest single-hit ballistic weapon.',
+  },
+  missile_rack:{
+    name:'Missile Rack', type:'explosive', cost:200, color:'#ffb84d',
+    cooldown:3.0, damage:4, splash:42, count:1,
+    desc:'1× rack · 4 dmg · 42px splash — your basic missile launcher.',
+  },
+  twin_missile_rack:{
+    name:'Twin Missile Rack', type:'explosive', cost:400, color:'#ff8040',
+    cooldown:2.2, damage:5, splash:56, count:2, spreadAngle:0.24,
+    desc:'2× rack · 5 dmg · 56px splash — fires a pair per volley.',
+  },
+  seeker_missile:{
+    name:'Seeker Missile', type:'explosive', cost:450, color:'#ff4da6',
+    cooldown:3.2, damage:4, splash:40, count:1, homing:true, turnRate:3.2,
+    desc:'1× rack · 4 dmg · 40px splash · homes in on the nearest target.',
+  },
+  seeker_swarm:{
+    name:'Seeker Swarm', type:'explosive', cost:5000, color:'#ff70c5',
+    cooldown:8.0, damage:2, splash:28, count:20, spreadAngle:2.2, homing:true, turnRate:3.2,
+    desc:'20× rack · 2 dmg · 28px splash — launches 20 seeking missiles in a wide volley.',
+  },
+  proximity_mine:{
+    name:'Proximity Mine', type:'mine', cost:380, color:'#fff44d',
+    cooldown:1.8, damage:5, splash:60, armTime:0.8,
+    desc:'5 dmg · 60px splash — drops behind you, arms in 0.8s, triggers on proximity.',
+  },
+  cluster_rocket:{
+    name:'Cluster Rocket', type:'explosive', cost:480, color:'#ff5b3d',
+    cooldown:3.5, damage:3, splash:90, count:3, spreadAngle:0.36,
+    desc:'3× rack · 3 dmg · 90px splash — wide spread, biggest blast radius.',
+  },
+  torpedo:{
+    name:'Torpedo', type:'explosive', cost:650, color:'#ff3d3d',
+    cooldown:4.5, damage:12, splash:60, count:1,
+    desc:'1× rack · 12 dmg · 60px splash — slow reload, boss-killer payload.',
+  },
+  neutron_blast:{
+    name:'Neutron Blast', type:'explosive', cost:10000, color:'#7fffd4',
+    cooldown:6.5, damage:3, splash:10, count:15, spreadAngle:4.71,
+    desc:'15× rack · 3 dmg · 10px splash — fire a 270 degree spread blast of 15 tiny missiles.',
+  },
+};
+
+const FINAL_MISSION_WEAPONS = {
+  primary:{
+    name:'Annihilator Cannon', type:'ballistic', color:'#4dff9f',
+    cooldown:0.2, bulletSpeed:900, damage:3, count:3, spreadAngle:0.16,
+  },
+  secondary:{
+    name:'Guardian Seeker Array', type:'explosive', color:'#7fffd4',
+    cooldown:5.5, damage:18, splash:64, count:6, spreadAngle:0.8, homing:true, turnRate:4.5,
+  },
+};
+
+// Refund table for players migrating off the old leveled weapon/missile tracks (see
+// migrateLegacyUpgrades() below) — cumulative cost to reach each old level, copied from the
+// pre-shop UPGRADE_TRACKS.weapon/.missiles cost columns before they were deleted. Only used
+// for computing that one-time refund; nothing else reads these.
+const LEGACY_WEAPON_COSTS  = [0, 120, 220, 380, 10000];
+const LEGACY_MISSILE_COSTS = [0, 200, 340, 520, 10000];
+
+const MISSIONS = [
+  {id:'m1', name:'Training Run',   brief:'Clear a light asteroid field to prove you can fly.',            type:'asteroids', target:5,  spawn:{asteroidInterval:1.4, enemyInterval:Infinity}, reward:100},
+  {id:'m2', name:'First Contact',  brief:'Hostile scouts detected. Take down 3 enemy ships.',              type:'enemies',    target:3,  spawn:{asteroidInterval:2.2, enemyInterval:4.5}, reward:150},
+  {id:'m3', name:'Asteroid Field', brief:'Survive 60 seconds inside a dense asteroid belt.',                type:'survive',    target:60, spawn:{asteroidInterval:0.7, enemyInterval:Infinity}, reward:175},
+  {id:'m4', name:'Convoy Buster',  brief:'Destroy 6 enemy ships before the convoy scatters.',                type:'enemies',    target:6,  timeLimit:90, spawn:{asteroidInterval:2.6, enemyInterval:2.8}, reward:250},
+  {id:'m5', name:'Endurance',      brief:'Hold the line for 90 seconds against escalating waves.',           type:'survive',    target:90, spawn:{asteroidInterval:1.1, enemyInterval:3.4, ramp:true}, reward:300},
+  {id:'m6', name:'Last Stand',     brief:'Destroy 10 enemy ships. Elites are inbound. This is the big one.', type:'enemies',    target:10, spawn:{asteroidInterval:1.0, enemyInterval:2.0, eliteChance:0.3, ramp:true}, reward:500},
+
+  // ---- extended roster: mostly the same three types at higher difficulty,
+  // plus two brand-new mission types ('boss' and 'combo') sprinkled in ----
+
+  {id:'m7', name:'Pursuit',        brief:'Enemy scouts are running for the jump line — cut them off.',     type:'enemies',    target:8,  timeLimit:100, spawn:{asteroidInterval:2.4, enemyInterval:3.2, eliteChance:0.12}, reward:320},
+
+  // NEW mission type: 'boss'. A single tough, named enemy instead of a kill quota.
+  // bossConfig fully controls its stats — tune per-mission without touching any code below.
+  {id:'m8', name:'The Dreadnought', brief:'A capital-class warship has entered the sector. Bring it down.', type:'boss', bossName:'Dreadnought',
+    spawn:{asteroidInterval:3.5, enemyInterval:Infinity},
+    bossConfig:{radius:38, hp:75, speed:110, fireInterval:0.55, bulletSpeed:400, burstCount:5},
+    reward:450},
+
+  {id:'m9', name:'Black Box Recovery', brief:'Recover five flight recorders from a debris field while scouts close in.', type:'salvage', target:5, spawn:{salvageInterval:4.5, asteroidInterval:2.2, enemyInterval:4.5}, reward:420},
+
+  {id:'m10', name:'Deep Patrol',   brief:'Hold this sector for two full minutes. Hostiles will escalate.', type:'survive',    target:120, spawn:{asteroidInterval:0.9, enemyInterval:2.6, eliteChance:0.2, ramp:true}, reward:520},
+
+  // NEW mission type: 'combo'. Two objectives must BOTH be cleared in the same run.
+  // comboTargets sets the two thresholds independently.
+  {id:'m11', name:'Twin Threat',   brief:'Rock and raiders both — clear a set number of each to secure the lane.', type:'combo',
+    comboTargets:{enemies:5, asteroids:10},
+    spawn:{asteroidInterval:1.2, enemyInterval:3.0, eliteChance:0.1},
+    reward:480},
+
+  {id:'m12', name:'Void Reckoning', brief:'Everything the sector has left, all at once. Good luck, pilot.', type:'enemies',   target:14, timeLimit:150, spawn:{asteroidInterval:0.8, enemyInterval:1.6, eliteChance:0.4, ramp:true}, reward:800},
+
+  // Late-campaign missions keep increasing enemy pressure, objective counts, and boss strength.
+  {id:'m13', name:'Razor Belt', brief:'Cross a razor-thin asteroid belt packed with fast-moving debris.', type:'asteroids', target:20, spawn:{asteroidInterval:0.42, enemyInterval:Infinity}, reward:650},
+  {id:'m14', name:'Elite Pursuit', brief:'Elite raiders are closing in. Eliminate the entire strike force.', type:'enemies', target:16, timeLimit:150, spawn:{asteroidInterval:1.5, enemyInterval:1.5, eliteChance:0.45, ramp:true}, reward:900},
+  {id:'m15', name:'Siege Line', brief:'Hold the line for two and a half minutes against relentless waves.', type:'survive', target:150, spawn:{asteroidInterval:0.75, enemyInterval:2.2, eliteChance:0.3, ramp:true}, reward:950},
+  {id:'m16', name:'The Iron Behemoth', brief:'A faster, heavily armed battleship is blocking the route. Destroy it.', type:'boss', bossName:'Iron Behemoth',
+    spawn:{asteroidInterval:2.2, enemyInterval:Infinity},
+    bossConfig:{radius:42, hp:110, speed:125, fireInterval:0.48, bulletSpeed:420, burstCount:6},
+    reward:1000},
+  {id:'m17', name:'Crossfire', brief:'Destroy raiders and clear the debris field before reinforcements arrive.', type:'combo',
+    comboTargets:{enemies:8, asteroids:14},
+    spawn:{asteroidInterval:0.9, enemyInterval:2.2, eliteChance:0.28, ramp:true},
+    reward:1100},
+  {id:'m18', name:'Hunter Armada', brief:'A large elite armada has entered the sector. Take out every ship.', type:'enemies', target:18, timeLimit:165, spawn:{asteroidInterval:1.1, enemyInterval:1.3, eliteChance:0.5, ramp:true}, reward:1200},
+  {id:'m19', name:'Ghost Signal', brief:'Track down eight drifting signal cores through a hostile wreck field.', type:'salvage', target:8, spawn:{salvageInterval:3.1, asteroidInterval:1.25, enemyInterval:2.8, eliteChance:0.2, ramp:true}, reward:1450},
+  {id:'m20', name:'Long Night', brief:'Survive three minutes as asteroid and elite waves build around you.', type:'survive', target:180, spawn:{asteroidInterval:0.65, enemyInterval:1.9, eliteChance:0.38, ramp:true}, reward:1350},
+  {id:'m21', name:'The War Engine', brief:'A colossal war engine is tearing through the outer defenses.', type:'boss', bossName:'War Engine',
+    spawn:{asteroidInterval:1.8, enemyInterval:Infinity},
+    bossConfig:{radius:46, hp:150, speed:140, fireInterval:0.42, bulletSpeed:440, burstCount:7},
+    reward:1500},
+  {id:'m22', name:'Three Fronts', brief:'Fight through a triple threat of raiders, elites, and asteroids.', type:'combo',
+    comboTargets:{enemies:10, asteroids:18},
+    spawn:{asteroidInterval:0.72, enemyInterval:1.8, eliteChance:0.4, ramp:true},
+    reward:1600},
+  {id:'m23', name:'Elite Breaker', brief:'Break the elite fleet before its reinforcements overwhelm you.', type:'enemies', target:20, timeLimit:180, spawn:{asteroidInterval:0.9, enemyInterval:1.15, eliteChance:0.58, ramp:true}, reward:1750},
+  {id:'m24', name:'Endless Debris', brief:'Clear a field of 28 massive asteroids while hostiles close in.', type:'asteroids', target:28, spawn:{asteroidInterval:0.32, enemyInterval:3.0, eliteChance:0.35, ramp:true}, reward:1850},
+  {id:'m25', name:'Last Watch', brief:'Endure three and a half minutes of escalating enemy waves.', type:'survive', target:210, spawn:{asteroidInterval:0.58, enemyInterval:1.65, eliteChance:0.45, ramp:true}, reward:2000},
+  {id:'m26', name:'The Citadel', brief:'The Citadel has arrived. Survive its punishing volleys and bring it down.', type:'boss', bossName:'The Citadel',
+    spawn:{asteroidInterval:0.95, enemyInterval:Infinity},
+    bossConfig:{radius:50, hp:300, speed:165, fireInterval:0.30, bulletSpeed:480, burstCount:9},
+    reward:2200},
+  {id:'m27', name:'Total Eclipse', brief:'Destroy a powerful strike force and clear the field of its debris.', type:'combo',
+    comboTargets:{enemies:18, asteroids:28},
+    spawn:{asteroidInterval:0.48, enemyInterval:1.2, eliteChance:0.6, ramp:true},
+    reward:2400},
+  {id:'m28', name:'Final Offensive', brief:'The remaining enemy fleet is making its final push. Stop it.', type:'enemies', target:30, timeLimit:180, spawn:{asteroidInterval:0.58, enemyInterval:0.82, eliteChance:0.75, ramp:true}, reward:2600},
+  {id:'m29', name:'Event Horizon', brief:'Hold your position for five minutes in the most hostile sector yet.', type:'survive', target:300, spawn:{asteroidInterval:0.42, enemyInterval:1.1, eliteChance:0.7, ramp:true}, reward:2900},
+  {id:'m30', name:'The Final Guardians', brief:'Defeat three flagships to secure the galaxy. This is your final test.', type:'boss', bossName:'The Final Guardians', bossCount:3,
+    spawn:{asteroidInterval:1.5, enemyInterval:Infinity},
+    bossConfig:{radius:60, hp:150, speed:115, fireInterval:0.55, bulletSpeed:380, burstCount:5},
+    reward:3500},
+  {id:'m31', name:'Slipstream Run', brief:'Thread the ship through six navigation gates before the route collapses.', type:'relay', target:6, timeLimit:90, spawn:{asteroidInterval:2.2, enemyInterval:Infinity}, reward:1200},
+  {id:'m32', name:'Minefield Courier', brief:'Race through eight relay gates while raiders pressure your escape route.', type:'relay', target:8, timeLimit:115, spawn:{asteroidInterval:1.6, enemyInterval:3.2, eliteChance:0.15}, reward:1650},
+  {id:'m33', name:'Redline Intercept', brief:'Hit ten moving route markers while elite fighters try to cut you off.', type:'relay', target:10, timeLimit:130, spawn:{asteroidInterval:1.25, enemyInterval:2.0, eliteChance:0.35, ramp:true}, reward:2200},
+  {id:'m34', name:'The Long Way Home', brief:'Cross twelve gates through a collapsing sector packed with debris and elites.', type:'relay', target:12, timeLimit:150, spawn:{asteroidInterval:0.9, enemyInterval:1.5, eliteChance:0.5, ramp:true}, reward:3000},
+  {id:'m35', name:'Apocalypse Protocol', brief:'Use experimental weapons to survive a collapsing asteroid storm, elite reinforcements, and eight flagship bosses.', type:'boss', bossName:'Apocalypse Protocol', bossCount:8, specialWeapons:FINAL_MISSION_WEAPONS,
+    spawn:{asteroidInterval:0.42, enemyInterval:0.72, eliteChance:0.78, ramp:true},
+    bossConfig:{radius:64, hp:420, speed:195, fireInterval:0.24, bulletSpeed:500, burstCount:10},
+    reward:10000},
+];
+
+/* ---------------------------- game state ---------------------------- */
+const game = {
+  state:'title', // auth | title | hangar | mission | end
+  credits:0,
+  upgrades:{engine:0, hull:0, shield:0, ownedWeapons:['pulse_cannon'], equipped:{primary:'pulse_cannon', secondary:null}},
+  unlockedMissionIndex:0,
+  completedMissions:new Set(),
+  selectedMissionId:'m1',
+  lastEndResult:null,
+};
+
+/* ---------------------------- cloud save (Supabase) ---------------------------- */
+// Fill these in from your Supabase project's dashboard (Settings > API, or the "Connect" button
+// on the project overview page). Use the "Publishable key" if your project has one — it's the
+// current name for what used to be called the "anon" key; both work identically here since
+// access is controlled by the Row Level Security policies on the table (see setup notes), not by
+// keeping this key secret. It's meant to be public and safe to ship in client-side code like this.
+//
+// Leaving these two values as-is disables accounts entirely: the game boots straight to the title
+// screen with no login step and no network calls, exactly like it did before this feature existed.
+const SUPABASE_URL = 'https://smjiqzpkafyqgwjocidm.supabase.co';         // e.g. 'https://abcdefgh.supabase.co'
+const SUPABASE_KEY = 'sb_publishable_yVrergJrniJsIff2FngaAw__S3ajTYC';      // starts with sb_publishable_ (or the legacy anon JWT)
+const AUTH_ENABLED = SUPABASE_URL.startsWith('http') && !SUPABASE_KEY.startsWith('YOUR_');
+
+// The name of the table progress is saved to. Must match the table you create with the setup SQL.
+const PROGRESS_TABLE = 'game_progress';
+
+const supabaseClient = AUTH_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+let currentUser = null;  // the signed-in Supabase user object, or null (guest / auth disabled)
+let guestMode = false;   // true once the player explicitly picks "play as guest" — disables saving
+
+function setAuthMsg(text, kind){
+  const el = document.getElementById('authMsg');
+  el.textContent = text;
+  el.className = 'auth-msg' + (kind ? ' '+kind : '');
+}
+
+async function authSignIn(){
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if(!email || !password){ setAuthMsg('Enter an email and password.','error'); return; }
+  setAuthMsg('Signing in…','');
+  const {data, error} = await supabaseClient.auth.signInWithPassword({email, password});
+  if(error){ setAuthMsg(error.message,'error'); return; }
+  await onSignedIn(data.user);
+}
+
+async function authSignUp(){
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if(!email || !password){ setAuthMsg('Enter an email and password.','error'); return; }
+  if(password.length < 6){ setAuthMsg('Password must be at least 6 characters.','error'); return; }
+  setAuthMsg('Creating account…','');
+  const {data, error} = await supabaseClient.auth.signUp({email, password});
+  if(error){ setAuthMsg(error.message,'error'); return; }
+  if(!data.session){
+    // "Confirm email" is on by default for new Supabase projects: signUp succeeds but returns no
+    // session until the player clicks the link in their inbox. Turn this off in Authentication >
+    // Providers > Email in your Supabase dashboard if you'd rather they play immediately.
+    setAuthMsg('Account created — check your email to confirm it, then sign in.','ok');
+    return;
+  }
+  await onSignedIn(data.user);
+}
+
+function authPlayAsGuest(){
+  guestMode = true;
+  currentUser = null;
+  game.state = 'title';
+  showScreen('title');
+}
+
+async function authSignOut(){
+  if(supabaseClient) await supabaseClient.auth.signOut();
+  currentUser = null;
+  guestMode = false;
+  // Reset to clean defaults so the next person to use this browser doesn't inherit this save.
+  game.credits = 0;
+  game.upgrades = {engine:0, hull:0, shield:0, ownedWeapons:['pulse_cannon'], equipped:{primary:'pulse_cannon', secondary:null}};
+  game.unlockedMissionIndex = 0;
+  game.completedMissions = new Set();
+  game.selectedMissionId = 'm1';
+  document.getElementById('authEmail').value = '';
+  document.getElementById('authPassword').value = '';
+  setAuthMsg('','');
+  game.state = 'auth';
+  showScreen('auth');
+}
+
+async function onSignedIn(user){
+  currentUser = user;
+  guestMode = false;
+  await loadProgress();
+  game.state = 'title';
+  showScreen('title');
+}
+
+// Loads this player's saved progress into `game`. If they've never saved before (first login),
+// creates their row with the current (fresh) defaults instead.
+async function loadProgress(){
+  if(!AUTH_ENABLED || !currentUser) return;
+  const {data, error} = await supabaseClient
+    .from(PROGRESS_TABLE).select('*').eq('id', currentUser.id).maybeSingle();
+  if(error){ console.error('Failed to load progress:', error.message); return; }
+  if(!data){ await saveProgress(); return; }
+  game.credits = data.credits;
+  game.upgrades = data.upgrades;
+  game.unlockedMissionIndex = data.unlocked_mission_index;
+  game.completedMissions = new Set(data.completed_missions);
+  // One-time migration for players saved before the weapon shop refactor (see
+  // migrateLegacyUpgrades below) — their save has numeric weapon/missiles levels instead of
+  // ownedWeapons/equipped. Fix it up in memory, then immediately persist the migrated shape so
+  // this only ever runs once per player.
+  if(migrateLegacyUpgrades(game.upgrades)) await saveProgress();
+}
+
+// Mutates `upgrades` in place, converting the old {weapon:N, missiles:N} leveled-track shape
+// into the new {ownedWeapons, equipped} shop shape. Refunds every credit the player spent
+// climbing those two old ladders (via LEGACY_WEAPON_COSTS/LEGACY_MISSILE_COSTS) so nothing is
+// lost — they just have to re-buy from the new shop with the refund in hand. Returns true if a
+// migration actually happened (so the caller knows whether to re-save), false for already-
+// current saves so this is safe to call unconditionally on every load.
+function migrateLegacyUpgrades(upgrades){
+  const isLegacy = typeof upgrades.weapon === 'number' || typeof upgrades.missiles === 'number';
+  if(!isLegacy) return false;
+  let refund = 0;
+  for(let i=1; i<=(upgrades.weapon||0); i++) refund += LEGACY_WEAPON_COSTS[i];
+  for(let i=1; i<=(upgrades.missiles||0); i++) refund += LEGACY_MISSILE_COSTS[i];
+  game.credits += refund;
+  delete upgrades.weapon;
+  delete upgrades.missiles;
+  upgrades.ownedWeapons = ['pulse_cannon'];
+  upgrades.equipped = {primary:'pulse_cannon', secondary:null};
+  console.log(`Migrated legacy weapon save — refunded ${refund} credits.`);
+  return true;
+}
+
+// Upserts the player's current progress. Called at natural checkpoints (mission complete, upgrade
+// purchased) rather than continuously, which is both simpler and keeps request volume trivial.
+async function saveProgress(){
+  if(!AUTH_ENABLED || !currentUser || guestMode) return;
+  const {error} = await supabaseClient.from(PROGRESS_TABLE).upsert({
+    id: currentUser.id,
+    credits: game.credits,
+    upgrades: game.upgrades,
+    unlocked_mission_index: game.unlockedMissionIndex,
+    completed_missions: Array.from(game.completedMissions),
+    updated_at: new Date().toISOString(),
+  }, {onConflict:'id'});
+  if(error) console.error('Failed to save progress:', error.message);
+}
+
+/* =====================================================================
+   PVP ARENA (multiplayer) — one public lobby, everyone who clicks "PvP Arena" free-for-alls
+   whoever else is currently connected. No matchmaking, no private rooms.
+
+   Networking model: each client simulates ONLY its own ship locally and broadcasts its own
+   position/angle/health ~ARENA_TICK_HZ times a second over a single shared Supabase Realtime
+   channel (broadcast + presence). Every other client just interpolates toward whatever it was
+   last told about a given player — nobody ever simulates anyone else's physics. Hit detection
+   is client-authoritative: the SHOOTER's client decides whether its bullet landed and tells the
+   target over the channel; the TARGET's client is the only one that ever touches its own health.
+   This is simple and fast to build, and completely fine for a casual public arena — but it does
+   mean a modified client could lie about landing hits. Don't reuse this pattern for anything
+   where cheating would actually matter.
+
+   Requires the same Supabase project as cloud saves (AUTH_ENABLED below) since it reuses
+   `supabaseClient` for both Realtime (live sync) and Postgres (the persistent kill
+   leaderboard). Run arena_setup.sql once in your Supabase project's SQL editor before using
+   this — it creates the arena_kills table and the increment_kill_count() function that
+   persistArenaKill() calls below.
+   ===================================================================== */
+const ARENA_CHANNEL_NAME     = 'arena-main'; // Realtime channel name everyone joins. Change this
+                                              // to spin up a separate/test lobby without affecting the live one.
+const ARENA_TICK_HZ          = 15;           // How often each client broadcasts its own state.
+                                              // Higher = smoother remote ships, more network traffic.
+const ARENA_LERP_RATE        = 10;           // How fast a remote ship's on-screen position catches up
+                                              // to its latest broadcast. Higher = snappier but jumpier.
+const ARENA_RESPAWN_SECS     = 2.5;          // Delay between death and respawn.
+const ARENA_SPAWN_INVULN     = 1.6;          // Seconds of invulnerability after (re)spawning.
+const ARENA_MAX_HEALTH       = 5;            // Hits to kill.
+const ARENA_SHIP_RADIUS      = 13;           // Collision radius, matches the campaign Ship's radius.
+const ARENA_LEADERBOARD_SIZE = 10;           // Rows shown on the all-time leaderboard.
+const ARENA_KILLS_TABLE      = 'arena_kills';// Postgres table — see arena_setup.sql.
+
+// PvP now uses each player's campaign upgrades (engine/weapon/hull/shield/missiles) instead
+// of a fixed loadout — a max-upgraded veteran genuinely outguns a fresh pilot, shield charges
+// and all. Flip back to false for equal-footing PvP instead (fixed loadout, no shields, no
+// missiles — see the {...ARENA_STATS, ...} fallback in ArenaShip.stats below).
+const ARENA_USE_CAMPAIGN_STATS = true;
+const ARENA_STATS = {
+  thrust:300, maxSpeed:360, turnSpeed:3.8,   // engine
+  // Fixed weapon used only when ARENA_USE_CAMPAIGN_STATS is false (equal-footing PvP) — shaped
+  // exactly like a WEAPONS[...] entry so it can be handed straight to fireWeaponShots().
+  primary: {type:'ballistic', cooldown:0.22, bulletSpeed:600, damage:1, count:1},
+};
+
+/* ---------------------------- arena ship (local player) ----------------------------
+   Flight model deliberately mirrors Ship.update() above (same wrap/damping/thrust math) so
+   the arena feels identical to the campaign — only the health/respawn system differs, since
+   PvP has no lives/mission-shield concept.
+
+   When ARENA_USE_CAMPAIGN_STATS is on, max health and spawn invulnerability come from the
+   player's hull upgrade (same maxLives/invuln stats the campaign uses), and shield charges /
+   missiles come straight from their respective upgrade tracks too — rather than the fixed
+   ARENA_MAX_HEALTH/ARENA_SPAWN_INVULN constants and no-shield/no-missile equal-footing mode.
+   Because two players can have different hull levels, maxHealth is broadcast alongside health
+   (see arenaBroadcastState) so everyone's health bar reads the correct fraction. */
+class ArenaShip{
+  constructor(){ this.respawn(); }
+  respawn(){
+    const hull = ARENA_USE_CAMPAIGN_STATS ? UPGRADE_TRACKS.hull.levels[game.upgrades.hull] : null;
+    const shieldLvl = ARENA_USE_CAMPAIGN_STATS ? UPGRADE_TRACKS.shield.levels[game.upgrades.shield] : {maxCharges:0, regenTime:0};
+    this.maxHealth = hull ? hull.maxLives : ARENA_MAX_HEALTH;
+    this.x = rand(80, canvas.width-80);
+    this.y = rand(80, canvas.height-80);
+    this.vx=0; this.vy=0; this.angle=rand(0,Math.PI*2);
+    this.radius = ARENA_SHIP_RADIUS;
+    this.health = this.maxHealth;
+    this.invulnTimer = hull ? hull.invuln : ARENA_SPAWN_INVULN;
+    this.fireCooldown=0;
+    this.secondaryCooldown=0;
+    this.thrusting=false;
+    this.alive=true;
+    this.deadTimer=0;
+    // Shield fields mirror the campaign Ship class's naming (this.shield = current charges,
+    // stats.shield.maxCharges = the cap) so the shared drawShip() function needs no changes
+    // to render either ship's shield ring.
+    this.shieldMax = shieldLvl.maxCharges;
+    this.shield = this.shieldMax;
+    this.shieldRegenTime = shieldLvl.regenTime;
+    this.shieldRegenTimer = this.shieldRegenTime;
+    this.shieldFlash = 0;
+  }
+  get stats(){
+    if(!ARENA_USE_CAMPAIGN_STATS) return {
+      thrust:ARENA_STATS.thrust, maxSpeed:ARENA_STATS.maxSpeed, turnSpeed:ARENA_STATS.turnSpeed,
+      primary: ARENA_STATS.primary,
+      secondary: null,
+      shield:{maxCharges:0, regenTime:0},
+    };
+    const eng = UPGRADE_TRACKS.engine.levels[game.upgrades.engine];
+    return {
+      thrust:eng.thrust, maxSpeed:eng.maxSpeed, turnSpeed:eng.turnSpeed,
+      primary: WEAPONS[game.upgrades.equipped.primary],
+      secondary: game.upgrades.equipped.secondary ? WEAPONS[game.upgrades.equipped.secondary] : null,
+      shield:UPGRADE_TRACKS.shield.levels[game.upgrades.shield],
+    };
+  }
+  update(dt){
+    if(!this.alive){
+      this.deadTimer -= dt;
+      if(this.deadTimer<=0) this.respawn();
+      return;
+    }
+    const s = this.stats;
+    if(keys.has('KeyA')) this.angle -= s.turnSpeed*dt;
+    if(keys.has('KeyD')) this.angle += s.turnSpeed*dt;
+    this.thrusting = keys.has('KeyW');
+    if(this.thrusting){
+      this.vx += Math.sin(this.angle)*s.thrust*dt;
+      this.vy += -Math.cos(this.angle)*s.thrust*dt;
+    }
+    const damp = Math.pow(0.55, dt);
+    this.vx *= damp; this.vy *= damp;
+    const speed = Math.hypot(this.vx,this.vy);
+    if(speed > s.maxSpeed){ const f=s.maxSpeed/speed; this.vx*=f; this.vy*=f; }
+    this.x = wrap(this.x + this.vx*dt, canvas.width);
+    this.y = wrap(this.y + this.vy*dt, canvas.height);
+
+    if(this.invulnTimer>0) this.invulnTimer -= dt;
+    if(this.shieldFlash>0) this.shieldFlash = Math.max(0, this.shieldFlash-dt);
+    if(this.shieldMax>0 && this.shield<this.shieldMax){
+      this.shieldRegenTimer -= dt;
+      if(this.shieldRegenTimer<=0){ this.shield++; this.shieldRegenTimer = this.shieldRegenTime; }
+    }
+
+    // Seeker Missiles in the arena home in on the nearest living remote player instead of
+    // asteroids/enemies — same findNearest() helper, different target lists.
+    const findHomingTarget = ()=> findNearest(this, remotePlayers.values());
+
+    this.fireCooldown -= dt;
+    if(keys.has('Space') && this.fireCooldown<=0){
+      this.fireCooldown = s.primary.cooldown;
+      const angles = fireWeaponShots(s.primary, this.x, this.y, this.angle, this.radius, arenaBullets, arenaMissiles, arenaMines, findHomingTarget);
+      spawnParticles(this.x + Math.sin(this.angle)*this.radius*1.4, this.y - Math.cos(this.angle)*this.radius*1.4, s.primary.color,2,0.15,90);
+      // Cosmetic broadcast only covers the primary shot's origin/angle — other players see one
+      // representative bolt/missile per volley rather than every fanned shot, which is a fine
+      // trade for how rarely multi-shot weapons matter cosmetically vs. the extra network chatter.
+      // `s.primary.color` rides along so remote viewers render it in the right weapon's color.
+      if(s.primary.type==='ballistic') arenaBroadcastFire(this.x,this.y,angles[0],s.primary.color);
+      else if(s.primary.type==='explosive') arenaBroadcastFireMissile(this.x,this.y,angles[0],s.primary.color);
+      else if(s.primary.type==='mine') arenaBroadcastFireMine(this.x,this.y,s.primary.color);
+    }
+
+    this.secondaryCooldown -= dt;
+    if((keys.has('ShiftLeft')||keys.has('ShiftRight')) && s.secondary && this.secondaryCooldown<=0){
+      this.secondaryCooldown = s.secondary.cooldown;
+      const angles = fireWeaponShots(s.secondary, this.x, this.y, this.angle, this.radius, arenaBullets, arenaMissiles, arenaMines, findHomingTarget);
+      spawnParticles(this.x,this.y,s.secondary.color,8,0.25,140);
+      if(s.secondary.type==='ballistic') arenaBroadcastFire(this.x,this.y,angles[0],s.secondary.color);
+      else if(s.secondary.type==='explosive') arenaBroadcastFireMissile(this.x,this.y,angles[0],s.secondary.color);
+      else if(s.secondary.type==='mine') arenaBroadcastFireMine(this.x,this.y,s.secondary.color);
+    }
+  }
+  // Called when a broadcast 'hit' event names US as the target, with the amount of damage that
+  // shot/missile deals. We are the sole authority over our OWN health/shield — see the module
+  // comment above for why hit resolution works this way. A shield charge blocks the ENTIRE hit
+  // regardless of its damage amount (matches how shields work in the campaign) before any
+  // damage amount is applied to health.
+  takeHit(amount=1){
+    if(this.invulnTimer>0 || !this.alive) return false;
+    if(this.shield>0){
+      this.shield--;
+      this.shieldRegenTimer = this.shieldRegenTime;
+      this.shieldFlash = 0.3;
+      shake(6);
+      spawnParticles(this.x,this.y,'#7fd7ff',16,0.4,180);
+      return true;
+    }
+    this.health -= amount;
+    spawnParticles(this.x,this.y,'#7fd7ff',12,0.35,160);
+    shake(6);
+    if(this.health<=0){
+      this.alive=false;
+      this.deadTimer = ARENA_RESPAWN_SECS;
+      spawnParticles(this.x,this.y,'#4ff0ff',22,0.55,220);
+      shake(10);
+    }
+    return true;
+  }
+}
+
+/* ---------------------------- remote player (rendered ghost of another client) ----------------
+   We never simulate other players — we only draw wherever their last broadcast said they were,
+   smoothed (lerp) toward it every frame so ARENA_TICK_HZ updates don't look like teleporting. */
+class RemotePlayer{
+  constructor(id, name){
+    this.id=id; this.name=name||'Pilot';
+    this.x=canvas.width/2; this.y=canvas.height/2; this.angle=0;
+    this.targetX=this.x; this.targetY=this.y; this.targetAngle=this.angle;
+    this.health=ARENA_MAX_HEALTH; this.maxHealth=ARENA_MAX_HEALTH; this.alive=true; this.thrusting=false;
+    this.shield=0; this.shieldMax=0;
+  }
+  applyState(msg){
+    this.targetX=msg.x; this.targetY=msg.y; this.targetAngle=msg.angle;
+    this.health=msg.health; this.maxHealth=msg.maxHealth||ARENA_MAX_HEALTH; this.alive=msg.alive; this.thrusting=msg.thrusting;
+    this.shield=msg.shield||0; this.shieldMax=msg.shieldMax||0;
+  }
+  update(dt){
+    // Shortest-path angle lerp so ships don't spin the long way round crossing the 0/2π seam.
+    let da = this.targetAngle - this.angle;
+    da = ((da+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2) - Math.PI;
+    const t = Math.min(1, ARENA_LERP_RATE*dt);
+    this.angle += da*t;
+    this.x += (this.targetX-this.x)*t;
+    this.y += (this.targetY-this.y)*t;
+  }
+}
+
+// Purely cosmetic bullet spawned from another player's 'fire' broadcast — it never deals damage
+// (only the shooter's own arenaBullets do that). Without this, remote ships would look like
+// they're never firing even while actively shooting at you.
+class RemoteBullet{
+  // `color` rides along in the 'fire' broadcast payload (see arenaBroadcastFire/arenaHandleFire)
+  // so a remote player's shots show their actual equipped weapon's color, not a generic one.
+  // Defaults to the old magenta in case a payload ever arrives without it.
+  constructor(x,y,angle,color='#ff3d81'){
+    this.x=x; this.y=y;
+    this.vx=Math.sin(angle)*ARENA_STATS.bulletSpeed; this.vy=-Math.cos(angle)*ARENA_STATS.bulletSpeed;
+    this.radius=3; this.life=1.4; this.color=color;
+  }
+  update(dt){
+    this.x=wrap(this.x+this.vx*dt,canvas.width);
+    this.y=wrap(this.y+this.vy*dt,canvas.height);
+    this.life-=dt;
+  }
+}
+
+// Same idea as RemoteBullet but for missiles — cosmetic only, drawn with the existing
+// drawMissile() (which reads .x/.y/.angle/.color, all provided below). The speed constant
+// matches the campaign Missile class's own hardcoded speed, purely for visual match.
+class RemoteMissile{
+  // Same color-over-the-wire idea as RemoteBullet above.
+  constructor(x,y,angle,color='#ffb84d'){
+    this.x=x; this.y=y; this.angle=angle;
+    this.vx=Math.sin(angle)*360; this.vy=-Math.cos(angle)*360;
+    this.life=1.8; this.color=color;
+  }
+  update(dt){
+    this.x=wrap(this.x+this.vx*dt,canvas.width);
+    this.y=wrap(this.y+this.vy*dt,canvas.height);
+    this.life-=dt;
+    if(Math.random()<0.6) spawnParticles(this.x,this.y,this.color,1,0.2,20);
+  }
+}
+
+// Cosmetic-only mine from another player's 'firemine' broadcast. Unlike RemoteBullet/
+// RemoteMissile there's no real detonation event broadcast for this — the shooter's own client
+// is the sole authority on when/whether it actually goes off (see arenaMines in updateArena),
+// so this is purely a "something got dropped there" visual that fades on its own after
+// REMOTE_MINE_LIFE seconds rather than tracking real arm/trigger state.
+const REMOTE_MINE_LIFE = 4;
+class RemoteMine{
+  // Same color-over-the-wire idea as RemoteBullet above. drawMine() treats a RemoteMine as
+  // permanently "armed" (see its own comment), so this color is what actually shows on screen.
+  constructor(x,y,color='#ffb84d'){
+    this.x=x; this.y=y;
+    this.life=REMOTE_MINE_LIFE; this.color=color;
+  }
+  update(dt){ this.life -= dt; }
+}
+
+/* ---------------------------- arena state ---------------------------- */
+let arenaShip = null;              // this client's ArenaShip, created on entering the arena
+const arenaBullets = [];           // this client's own bullets — collision authority lives here
+const remoteBullets = [];          // cosmetic-only bullets from other players
+const arenaMissiles = [];          // this client's own missiles — collision authority lives here
+const remoteMissiles = [];         // cosmetic-only missiles from other players
+const arenaMines = [];             // this client's own mines — collision authority lives here
+const remoteMines = [];            // cosmetic-only mines from other players (see RemoteMine)
+const remotePlayers = new Map();   // id -> RemotePlayer, everyone else currently in the arena
+const arenaScoreboard = new Map(); // id -> {name, kills} — THIS SESSION's live scoreboard, resets on reload
+let arenaChannel = null;           // the Supabase Realtime channel while connected
+let arenaMyId = null;              // random per-connection id (not the account id — lets guests play too)
+let arenaTickTimer = 0;
+let arenaKillFeed = [];            // recent "X destroyed Y" lines shown briefly on the HUD
+
+function arenaDisplayName(){
+  if(currentUser && currentUser.email) return currentUser.email.split('@')[0];
+  return 'Guest-' + arenaMyId.slice(0,4);
+}
+
+async function enterArena(){
+  if(!AUTH_ENABLED) return; // arenaBtn is hidden in this case anyway (see boot() below)
+  arenaMyId = crypto.randomUUID();
+  arenaShip = new ArenaShip();
+  arenaBullets.length=0; remoteBullets.length=0; arenaMissiles.length=0; remoteMissiles.length=0;
+  arenaMines.length=0; remoteMines.length=0; particles.length=0;
+  remotePlayers.clear(); arenaScoreboard.clear(); arenaKillFeed=[];
+
+  game.state='arena';
+  showScreen(null);
+  document.getElementById('arenaHud').classList.remove('hidden');
+  updateArenaHUD();
+  refreshLeaderboard();
+
+  arenaChannel = supabaseClient.channel(ARENA_CHANNEL_NAME, {
+    config: { presence:{ key:arenaMyId }, broadcast:{ self:false } },
+  });
+  arenaChannel
+    .on('broadcast', {event:'state'}, ({payload})=> arenaHandleState(payload))
+    .on('broadcast', {event:'fire'},  ({payload})=> arenaHandleFire(payload))
+    .on('broadcast', {event:'firemissile'}, ({payload})=> arenaHandleFireMissile(payload))
+    .on('broadcast', {event:'firemine'}, ({payload})=> arenaHandleFireMine(payload))
+    .on('broadcast', {event:'hit'},   ({payload})=> arenaHandleHit(payload))
+    .on('broadcast', {event:'kill'},  ({payload})=> arenaHandleKill(payload))
+    .on('presence', {event:'join'},  ({key,newPresences})=> arenaHandlePresenceJoin(key,newPresences))
+    .on('presence', {event:'leave'}, ({key})=> arenaHandlePresenceLeave(key))
+    .subscribe(async status=>{
+      if(status==='SUBSCRIBED') await arenaChannel.track({name:arenaDisplayName()});
+    });
+}
+
+function leaveArena(){
+  if(arenaChannel){ supabaseClient.removeChannel(arenaChannel); arenaChannel=null; }
+  remotePlayers.clear();
+  document.getElementById('arenaHud').classList.add('hidden');
+}
+
+function exitArena(){
+  leaveArena();
+  arenaShip = null;
+  game.state='title';
+  showScreen('title');
+}
+
+/* ----- outgoing broadcasts ----- */
+function arenaBroadcastState(){
+  if(!arenaChannel || !arenaShip) return;
+  arenaChannel.send({type:'broadcast', event:'state', payload:{
+    id:arenaMyId, name:arenaDisplayName(),
+    x:arenaShip.x, y:arenaShip.y, angle:arenaShip.angle,
+    thrusting:arenaShip.thrusting, health:arenaShip.health, maxHealth:arenaShip.maxHealth, alive:arenaShip.alive,
+    shield:arenaShip.shield, shieldMax:arenaShip.shieldMax,
+  }});
+}
+// `color` is the firing weapon's WEAPONS[...].color, so remote viewers see the shooter's actual
+// equipped weapon rather than one fixed color per projectile type.
+function arenaBroadcastFire(x,y,angle,color){
+  if(!arenaChannel) return;
+  arenaChannel.send({type:'broadcast', event:'fire', payload:{id:arenaMyId, x, y, angle, color}});
+}
+function arenaBroadcastFireMissile(x,y,angle,color){
+  if(!arenaChannel) return;
+  arenaChannel.send({type:'broadcast', event:'firemissile', payload:{id:arenaMyId, x, y, angle, color}});
+}
+function arenaBroadcastFireMine(x,y,color){
+  if(!arenaChannel) return;
+  arenaChannel.send({type:'broadcast', event:'firemine', payload:{id:arenaMyId, x, y, color}});
+}
+// Sent when OUR bullet/missile hits a remote player — see the module comment for why the
+// shooter decides this and the target applies it, rather than the other way round. `damage`
+// carries the shooter's actual weapon/missile damage level, so upgrades matter in PvP too —
+// the target still decides whether a shield absorbs it before any of that damage lands.
+function arenaBroadcastHit(targetId, damage){
+  if(!arenaChannel) return;
+  arenaChannel.send({type:'broadcast', event:'hit', payload:{shooterId:arenaMyId, targetId, damage}});
+}
+function arenaBroadcastKill(killerId, killerName, victimId, victimName){
+  if(!arenaChannel) return;
+  arenaChannel.send({type:'broadcast', event:'kill', payload:{killerId, killerName, victimId, victimName}});
+}
+
+/* ----- incoming broadcasts ----- */
+function arenaHandleState(msg){
+  if(msg.id===arenaMyId) return;
+  let rp = remotePlayers.get(msg.id);
+  if(!rp){ rp = new RemotePlayer(msg.id, msg.name); remotePlayers.set(msg.id, rp); }
+  rp.name = msg.name;
+  rp.applyState(msg);
+}
+function arenaHandleFire(msg){
+  if(msg.id===arenaMyId) return;
+  remoteBullets.push(new RemoteBullet(msg.x, msg.y, msg.angle, msg.color));
+}
+function arenaHandleFireMissile(msg){
+  if(msg.id===arenaMyId) return;
+  remoteMissiles.push(new RemoteMissile(msg.x, msg.y, msg.angle, msg.color));
+}
+function arenaHandleFireMine(msg){
+  if(msg.id===arenaMyId) return;
+  remoteMines.push(new RemoteMine(msg.x, msg.y, msg.color));
+}
+// A hit event only matters if WE are the named target — every other client just ignores it.
+// The VICTIM is the one who broadcasts the resulting kill (we're the ones who just found out
+// we died), but credit goes to msg.shooterId — not arenaMyId, which is us, the victim.
+function arenaHandleHit(msg){
+  if(msg.targetId!==arenaMyId || !arenaShip) return;
+  const wasAlive = arenaShip.alive;
+  arenaShip.takeHit(msg.damage||1);
+  if(wasAlive && !arenaShip.alive){
+    const shooter = remotePlayers.get(msg.shooterId);
+    arenaBroadcastKill(msg.shooterId, shooter?shooter.name:'Pilot', arenaMyId, arenaDisplayName());
+  }
+}
+function arenaHandleKill(msg){
+  const entry = arenaScoreboard.get(msg.killerId) || {name:msg.killerName, kills:0};
+  entry.kills++; entry.name = msg.killerName;
+  arenaScoreboard.set(msg.killerId, entry);
+  arenaKillFeed.unshift(`${msg.killerName} destroyed ${msg.victimName}`);
+  arenaKillFeed = arenaKillFeed.slice(0,5);
+  if(msg.killerId===arenaMyId) persistArenaKill(); // it was our kill — save it to the permanent leaderboard
+}
+function arenaHandlePresenceJoin(key, newPresences){
+  if(key===arenaMyId || remotePlayers.has(key)) return;
+  const name = newPresences[0] && newPresences[0].name;
+  remotePlayers.set(key, new RemotePlayer(key, name));
+}
+function arenaHandlePresenceLeave(key){
+  remotePlayers.delete(key);
+}
+
+/* ----- persistent leaderboard (Postgres, via arena_setup.sql) ----- */
+// Adds one kill to this ACCOUNT's all-time total. Guests aren't signed in, so their kills only
+// ever show up in this session's live scoreboard — never on the permanent leaderboard.
+async function persistArenaKill(){
+  if(!AUTH_ENABLED || !currentUser || guestMode) return;
+  const {error} = await supabaseClient.rpc('increment_kill_count', {p_display_name:arenaDisplayName()});
+  if(error) console.error('Failed to persist kill:', error.message);
+}
+async function refreshLeaderboard(){
+  if(!AUTH_ENABLED) return;
+  const {data, error} = await supabaseClient
+    .from(ARENA_KILLS_TABLE).select('display_name, kills')
+    .order('kills', {ascending:false}).limit(ARENA_LEADERBOARD_SIZE);
+  if(error){ console.error('Failed to load leaderboard:', error.message); return; }
+  renderLeaderboard(data||[]);
+}
+function renderLeaderboard(rows){
+  const el = document.getElementById('arenaLeaderboard');
+  if(!rows.length){ el.innerHTML = '<div class="lb-empty">No kills recorded yet — be the first.</div>'; return; }
+  el.innerHTML = rows.map((r,i)=>`<div class="lb-row"><span>${i+1}. ${r.display_name}</span><span>${r.kills}</span></div>`).join('');
+}
+
+/* ----- per-frame update ----- */
+function updateArena(dt){
+  arenaShip.update(dt);
+
+  arenaTickTimer -= dt;
+  if(arenaTickTimer<=0){
+    arenaTickTimer = 1/ARENA_TICK_HZ;
+    arenaBroadcastState();
+  }
+
+  for(const rp of remotePlayers.values()) rp.update(dt);
+  for(const b of arenaBullets) b.update(dt);
+  for(const b of remoteBullets) b.update(dt);
+  for(const m of arenaMissiles) m.update(dt);
+  for(const m of remoteMissiles) m.update(dt);
+  for(const m of arenaMines) m.update(dt);
+  for(const m of remoteMines) m.update(dt);
+  for(const p of particles) p.update(dt);
+
+  // Our bullets vs every remote player currently alive — WE decide our own hits (see the
+  // module comment above); the target's own client is what actually applies the damage.
+  for(const b of arenaBullets){
+    if(b.life<=0) continue;
+    for(const rp of remotePlayers.values()){
+      if(!rp.alive) continue;
+      if(dist2(b, rp) < (b.radius+ARENA_SHIP_RADIUS)*(b.radius+ARENA_SHIP_RADIUS)){
+        b.life=0;
+        spawnParticles(b.x,b.y,'#ff9fc3',6,0.3,120);
+        arenaBroadcastHit(rp.id, b.damage);
+        break;
+      }
+    }
+  }
+
+  // Our missiles: detonate on contact with any remote player or on expiry, same as the
+  // campaign's explodeMissile() but against remotePlayers instead of asteroids/enemies.
+  for(const m of arenaMissiles){
+    if(m.exploded) continue;
+    let hit=false;
+    for(const rp of remotePlayers.values()){
+      if(rp.alive && dist2(m,rp) < (m.radius+ARENA_SHIP_RADIUS)*(m.radius+ARENA_SHIP_RADIUS)){ hit=true; break; }
+    }
+    if(hit || m.life<=0){ m.exploded=true; explodeArenaMissile(m); }
+  }
+
+  // Our mines: only trigger once armed, then detonate the instant a living remote player comes
+  // within splash range — or silently time out at MINE_MAX_LIFE if nothing ever does.
+  for(const m of arenaMines){
+    if(m.exploded) continue;
+    let triggered = false;
+    if(m.armed){
+      for(const rp of remotePlayers.values()){
+        if(rp.alive && dist2(m,rp) < (m.splash+ARENA_SHIP_RADIUS)*(m.splash+ARENA_SHIP_RADIUS)){ triggered=true; break; }
+      }
+    }
+    if(triggered || m.life<=0){ m.exploded=true; explodeArenaMissile(m); } // same splash logic as a missile
+  }
+
+  filterInPlace(arenaBullets, b=>b.life>0);
+  filterInPlace(remoteBullets, b=>b.life>0);
+  filterInPlace(arenaMissiles, m=>!m.exploded);
+  filterInPlace(remoteMissiles, m=>m.life>0);
+  filterInPlace(arenaMines, m=>!m.exploded);
+  filterInPlace(remoteMines, m=>m.life>0);
+  filterInPlace(particles, p=>p.life>0);
+
+  updateArenaHUD();
+}
+
+// Splash-damages every remote player within blast radius, same idea as the campaign's
+// explodeMissile() — each one gets its own 'hit' broadcast (with the missile's damage) rather
+// than a single event, since different targets may have different shields/health.
+function explodeArenaMissile(m){
+  spawnParticles(m.x,m.y,m.color,24,0.6,220);
+  shake(8);
+  for(const rp of remotePlayers.values()){
+    if(!rp.alive) continue;
+    if(dist2(m,rp) < (m.splash+ARENA_SHIP_RADIUS)*(m.splash+ARENA_SHIP_RADIUS)){
+      arenaBroadcastHit(rp.id, m.damage);
+    }
+  }
+}
+
+function updateArenaHUD(){
+  if(!arenaShip) return;
+  document.getElementById('arenaHealth').innerHTML = Array.from({length:arenaShip.maxHealth}).map((_,i)=>
+    `<span class="life-icon ${i<arenaShip.health?'':'spent'}">▲</span>`).join('');
+
+  const shieldRow = document.getElementById('arenaShield');
+  if(arenaShip.shieldMax>0){
+    shieldRow.classList.remove('hidden');
+    shieldRow.innerHTML = Array.from({length:arenaShip.shieldMax}).map((_,i)=>
+      `<span class="shield-icon ${i<arenaShip.shield?'':'spent'}">◆</span>`).join('');
+  } else {
+    shieldRow.classList.add('hidden');
+  }
+
+  const secondary = arenaShip.stats.secondary;
+  const secondaryRow = document.getElementById('arenaMissileStatus');
+  if(secondary){
+    secondaryRow.classList.remove('hidden');
+    const ready = arenaShip.secondaryCooldown<=0;
+    secondaryRow.textContent = ready ? `${secondary.name.toUpperCase()} READY` : `${secondary.name.toUpperCase()} ${Math.ceil(arenaShip.secondaryCooldown)}s`;
+    secondaryRow.classList.toggle('ready', ready);
+  } else {
+    secondaryRow.classList.add('hidden');
+  }
+  document.getElementById('arenaHint').textContent = secondary
+    ? `W THRUST · A/D ROTATE · SPACE FIRE · SHIFT ${secondary.name.toUpperCase()} · ESC EXIT ARENA`
+    : 'W THRUST · A/D ROTATE · SPACE FIRE · ESC EXIT ARENA';
+
+  const killFeed = document.getElementById('arenaKillFeed');
+  killFeed.innerHTML = arenaKillFeed.map(l=>`<div>${l}</div>`).join('');
+  const myEntry = arenaScoreboard.get(arenaMyId);
+  document.getElementById('arenaMyKills').textContent = `KILLS: ${myEntry?myEntry.kills:0}`;
+  document.getElementById('arenaPlayerCount').textContent = `${remotePlayers.size+1} PILOT${remotePlayers.size===0?'':'S'} ONLINE`;
+}
+
+function drawRemotePlayer(rp){
+  ctx.save();
+  ctx.translate(rp.x, rp.y);
+  ctx.rotate(rp.angle);
+  ctx.strokeStyle='#ff3d81'; ctx.shadowColor='#ff3d81'; ctx.shadowBlur=10; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(0,-16); ctx.lineTo(10,12); ctx.lineTo(0,6); ctx.lineTo(-10,12);
+  ctx.closePath(); ctx.stroke();
+  if(rp.thrusting){
+    ctx.strokeStyle='#ffb84d'; ctx.shadowColor='#ffb84d';
+    ctx.beginPath(); ctx.moveTo(-5,10); ctx.lineTo(0,10+rand(8,18)); ctx.lineTo(5,10); ctx.stroke();
+  }
+  ctx.restore();
+
+  if(rp.shieldMax>0 && rp.shield>0){
+    ctx.save();
+    ctx.translate(rp.x, rp.y);
+    ctx.globalAlpha = 0.2 + 0.5*(rp.shield/rp.shieldMax);
+    ctx.strokeStyle='#7fd7ff'; ctx.shadowColor='#7fd7ff'; ctx.shadowBlur=14; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(0,0,22,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.font='11px Orbitron, sans-serif'; ctx.fillStyle='#8095b8'; ctx.textAlign='center';
+  ctx.fillText(rp.name, rp.x, rp.y-30);
+  const barW=28;
+  ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(rp.x-barW/2, rp.y-26, barW, 3);
+  ctx.fillStyle='#ff3d81'; ctx.fillRect(rp.x-barW/2, rp.y-26, barW*Math.max(0,rp.health/rp.maxHealth), 3);
+  ctx.restore();
+}
+
+let mission = null;
+const bullets=[], enemyBullets=[], missiles=[], mines=[], asteroids=[], enemies=[], particles=[], salvageCores=[];
+
+let shakeMag=0, shakeTime=0;
+function shake(mag){ shakeMag=mag; shakeTime=0.3; }
+
+/* ---------------------------- stars ---------------------------- */
+let stars = [];
+function initStars(){
+  stars = [];
+  const count = Math.floor((canvas.width*canvas.height)/9000);
+  for(let i=0;i<count;i++){
+    stars.push({x:rand(0,canvas.width), y:rand(0,canvas.height), r:rand(0.4,1.8), tw:rand(0,Math.PI*2)});
+  }
+}
+function drawStars(dt){
+  ctx.save();
+  for(const s of stars){
+    s.tw += dt*1.4;
+    const alpha = 0.35+0.4*Math.sin(s.tw);
+    ctx.fillStyle = `rgba(200,220,255,${Math.max(0,alpha).toFixed(2)})`;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---------------------------- ship ---------------------------- */
+class Ship{
+  constructor(){ this.reset(); }
+  reset(){
+    this.x = canvas.width/2; this.y = canvas.height/2;
+    this.vx=0; this.vy=0; this.angle=0;
+    this.radius=13;
+    this.invulnTimer=1.6;
+    this.fireCooldown=0;
+    this.secondaryCooldown=0;
+    this.thrusting=false;
+    this.alive=true;
+    this.shieldFlash=0;
+    const shieldLvl = UPGRADE_TRACKS.shield.levels[game.upgrades.shield];
+    this.shield = shieldLvl.maxCharges;
+    this.shieldRegenTimer = shieldLvl.regenTime;
+  }
+  get stats(){
+    const specialWeapons = mission?.specialWeapons;
+    return {
+      primary: specialWeapons ? specialWeapons.primary : WEAPONS[game.upgrades.equipped.primary],
+      secondary: specialWeapons ? specialWeapons.secondary : (game.upgrades.equipped.secondary ? WEAPONS[game.upgrades.equipped.secondary] : null),
+      eng: UPGRADE_TRACKS.engine.levels[game.upgrades.engine],
+      hull: UPGRADE_TRACKS.hull.levels[game.upgrades.hull],
+      shield: UPGRADE_TRACKS.shield.levels[game.upgrades.shield],
+    };
+  }
+  update(dt){
+    const {primary,secondary,eng,shield} = this.stats;
+    if(keys.has('KeyA')) this.angle -= eng.turnSpeed*dt;
+    if(keys.has('KeyD')) this.angle += eng.turnSpeed*dt;
+
+    this.thrusting = keys.has('KeyW');
+    if(this.thrusting){
+      this.vx += Math.sin(this.angle)*eng.thrust*dt;
+      this.vy += -Math.cos(this.angle)*eng.thrust*dt;
+    }
+    const damp = Math.pow(0.55, dt);
+    this.vx *= damp; this.vy *= damp;
+
+    const speed = Math.hypot(this.vx,this.vy);
+    if(speed > eng.maxSpeed){ const s=eng.maxSpeed/speed; this.vx*=s; this.vy*=s; }
+
+    this.x = wrap(this.x + this.vx*dt, canvas.width);
+    this.y = wrap(this.y + this.vy*dt, canvas.height);
+
+    if(this.invulnTimer>0) this.invulnTimer -= dt;
+    if(this.shieldFlash>0) this.shieldFlash = Math.max(0, this.shieldFlash-dt);
+
+    if(shield.maxCharges>0 && this.shield<shield.maxCharges){
+      this.shieldRegenTimer -= dt;
+      if(this.shieldRegenTimer<=0){
+        this.shield++;
+        this.shieldRegenTimer = shield.regenTime;
+      }
+    }
+
+    // findHomingTarget: nearest living asteroid or enemy — only actually consulted by a Missile
+    // if it was built with homing:true (Seeker Missile), see fireWeaponShots/Missile.update.
+    const findHomingTarget = ()=> findNearest(this, asteroids, enemies);
+
+    this.fireCooldown -= dt;
+    if(keys.has('Space') && this.fireCooldown<=0){
+      this.fireCooldown = primary.cooldown;
+      fireWeaponShots(primary, this.x, this.y, this.angle, this.radius, bullets, missiles, mines, findHomingTarget);
+      spawnParticles(this.x + Math.sin(this.angle)*this.radius*1.4, this.y - Math.cos(this.angle)*this.radius*1.4, primary.color,2,0.15,90);
+    }
+
+    this.secondaryCooldown -= dt;
+    if((keys.has('ShiftLeft')||keys.has('ShiftRight')) && secondary && this.secondaryCooldown<=0){
+      this.secondaryCooldown = secondary.cooldown;
+      fireWeaponShots(secondary, this.x, this.y, this.angle, this.radius, bullets, missiles, mines, findHomingTarget);
+      spawnParticles(this.x,this.y,secondary.color,8,0.25,140);
+    }
+  }
+  hit(){
+    if(this.invulnTimer>0 || !this.alive) return false;
+    this.invulnTimer = this.stats.hull.invuln;
+    if(this.shield>0){
+      this.shield--;
+      this.shieldRegenTimer = this.stats.shield.regenTime;
+      this.shieldFlash = 0.3;
+      shake(6);
+      spawnParticles(this.x,this.y,'#7fd7ff',16,0.4,180);
+      return true;
+    }
+    mission.lives -= 1;
+    shake(10);
+    spawnParticles(this.x,this.y,'#4ff0ff',18,0.5,200);
+    if(mission.lives<=0) this.alive=false;
+    return true;
+  }
+}
+
+/* ---------------------------- weapon firing dispatch ----------------------------
+   Fires `weaponDef` (a WEAPONS[...] entry) from (x,y) facing `angle`, spawning whatever kind of
+   projectile it actually is into the right array. This is the ONE place that has to know about
+   every weapon `type` — the campaign Ship and the PvP ArenaShip both call this instead of each
+   hardcoding "Space fires a Bullet, Shift fires a Missile" the way the old two-track system did.
+   That's what makes any weapon equippable to either slot: the slot doesn't decide what gets
+   fired, the equipped weapon's own `type` does.
+     bulletArr / missileArr / mineArr — the arrays to push spawned projectiles into (campaign
+       uses bullets/missiles/mines; the arena uses arenaBullets/arenaMissiles/arenaMines).
+     findHomingTarget — zero-arg function returning {x,y} of the best target for a homing
+       missile to steer toward (or a falsy value for "no target"). Passed in rather than looked
+       up here because the campaign homes in on asteroids/enemies while the arena homes in on
+       remote players — this function doesn't need to know which.
+   Returns the array of angles actually fired, in case a caller wants to spawn matching
+   particles/broadcasts per-shot. */
+function fireWeaponShots(weaponDef, x, y, angle, radius, bulletArr, missileArr, mineArr, findHomingTarget){
+  if(weaponDef.type==='mine'){
+    mineArr.push(new Mine(x, y, weaponDef.damage, weaponDef.splash, weaponDef.armTime, weaponDef.color));
+    return [angle];
+  }
+  const count = weaponDef.count || 1;
+  const angles = [];
+  if(count<=1){
+    angles.push(angle);
+  } else {
+    // Fan `count` shots evenly across weaponDef.spreadAngle (total arc, radians), centered on
+    // `angle` — e.g. count:5 spreadAngle:0.7 gives 5 bullets spanning a 40° cone.
+    const spread = weaponDef.spreadAngle || 0;
+    for(let i=0;i<count;i++){
+      const t = (i/(count-1)) - 0.5;
+      angles.push(angle + t*spread);
+    }
+  }
+  for(const a of angles){
+    const nx = x + Math.sin(a)*radius*1.4;
+    const ny = y - Math.cos(a)*radius*1.4;
+    if(weaponDef.type==='ballistic'){
+      bulletArr.push(new Bullet(nx, ny, a, weaponDef.bulletSpeed, weaponDef.damage, weaponDef.color));
+    } else if(weaponDef.type==='explosive'){
+      missileArr.push(new Missile(nx, ny, a, weaponDef.damage, weaponDef.splash, weaponDef.homing, findHomingTarget, weaponDef.turnRate, weaponDef.color));
+    }
+  }
+  return angles;
+}
+
+/* ---------------------------- bullets ---------------------------- */
+class Bullet{
+  // `color` defaults to the classic cyan so anything that still constructs a Bullet without
+  // passing one (currently: enemy fire, which is drawn with its own hardcoded color regardless —
+  // see drawBullet call sites) keeps working unchanged.
+  constructor(x,y,angle,speed,damage,color='#4ff0ff'){
+    this.x=x; this.y=y;
+    this.vx=Math.sin(angle)*speed; this.vy=-Math.cos(angle)*speed;
+    this.damage=damage; this.radius=3; this.life=1.4; this.color=color;
+  }
+  update(dt){
+    this.x = wrap(this.x+this.vx*dt, canvas.width);
+    this.y = wrap(this.y+this.vy*dt, canvas.height);
+    this.life -= dt;
+  }
+}
+
+/* ---------------------------- missiles ---------------------------- */
+class Missile{
+  // `homing`/`findTarget`/`turnRate` are only used by the Seeker Missile — every other
+  // explosive weapon just leaves homing false and flies dead straight, same as before.
+  // `findTarget` is a zero-arg function (see fireWeaponShots above) so this class doesn't need
+  // to know whether it's chasing an asteroid, an enemy, or a remote player.
+  constructor(x,y,angle,damage,splash,homing=false,findTarget=null,turnRate=3.0,color='#ffb84d'){
+    this.x=x; this.y=y; this.angle=angle;
+    this.vx=Math.sin(angle)*360; this.vy=-Math.cos(angle)*360;
+    this.damage=damage; this.splash=splash;
+    this.radius=5; this.life=homing?Infinity:1.8; this.exploded=false;
+    this.speed=360;
+    this.homing=homing; this.findTarget=findTarget; this.turnRate=turnRate;
+    this.color=color;
+  }
+  update(dt){
+    if(this.homing && this.findTarget){
+      const target = this.findTarget();
+      if(target){
+        const desiredAngle = Math.atan2(
+          wrapDelta(this.x,target.x,canvas.width),
+          -wrapDelta(this.y,target.y,canvas.height),
+        );
+        // Shortest-path angle diff, clamped to how far this missile can turn in one frame — same
+        // pattern used for arena ghost-angle lerping elsewhere in this file.
+        let da = desiredAngle - this.angle;
+        da = ((da+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2) - Math.PI;
+        const maxTurn = this.turnRate*dt;
+        this.angle += Math.max(-maxTurn, Math.min(maxTurn, da));
+        this.vx = Math.sin(this.angle)*this.speed;
+        this.vy = -Math.cos(this.angle)*this.speed;
+      }
+    }
+    this.x = wrap(this.x+this.vx*dt, canvas.width);
+    this.y = wrap(this.y+this.vy*dt, canvas.height);
+    if(!this.homing) this.life -= dt;
+    if(Math.random()<0.6) spawnParticles(this.x,this.y,this.color,1,0.2,20);
+  }
+}
+
+// Finds the closest living entry across one or more arrays of {x,y}-having objects (asteroids,
+// enemies, remote players...), skipping any that are dead/not-alive. Shared by the campaign and
+// arena homing-target finders passed into fireWeaponShots — see Ship.update/ArenaShip.update.
+function findNearest(origin, ...lists){
+  let best=null, bestD=Infinity;
+  for(const list of lists){
+    for(const item of list){
+      if(item.dead || item.alive===false) continue;
+      const d = dist2(origin,item);
+      if(d<bestD){ bestD=d; best=item; }
+    }
+  }
+  return best;
+}
+
+/* ---------------------------- mines ---------------------------- */
+// Dropped in place behind the ship rather than fired forward — sits inert during `armTime`,
+// then is "live" and detonates the instant a hostile comes within its splash radius (checked in
+// the mission/arena update loops, not here — this class only tracks its own state machine).
+// Auto-despawns after MINE_MAX_LIFE seconds even if nothing ever triggers it, so a forgotten
+// mine doesn't sit on the field forever.
+const MINE_MAX_LIFE = 10;
+class Mine{
+  constructor(x,y,damage,splash,armTime,color='#ffb84d'){
+    this.x=x; this.y=y;
+    this.damage=damage; this.splash=splash;
+    this.armTimer=armTime;
+    this.armed=false;
+    this.life=MINE_MAX_LIFE;
+    this.radius=6;
+    this.exploded=false;
+    this.pulse=0; // cosmetic blink timer, see drawMine()
+    this.color=color; // only shown once armed — drawMine() keeps the dim gray "arming" look regardless
+  }
+  update(dt){
+    this.life -= dt;
+    if(!this.armed){
+      this.armTimer -= dt;
+      if(this.armTimer<=0) this.armed=true;
+    }
+    this.pulse += dt;
+  }
+}
+// Shared by both real Missiles and triggered Mines (see the mine-trigger block below) — both
+// carry a `.color` from their firing weapon, so the blast always matches whatever went off.
+function explodeMissile(m){
+  spawnParticles(m.x,m.y,m.color,24,0.6,220);
+  shake(8);
+  // snapshot: splash should only catch what existed at the moment of impact,
+  // not chunks that this same explosion spawns while it's iterating
+  const asteroidsAtImpact = asteroids.filter(a=>!a.dead);
+  for(const a of asteroidsAtImpact){
+    if(dist2(m,a) < (m.splash+a.radius)*(m.splash+a.radius)){
+      a.hp -= m.damage;
+      if(a.hp<=0){
+        a.dead=true;
+        mission.asteroidsDestroyed++;
+        spawnParticles(a.x,a.y,'#c9d6ea',10,0.4,160);
+        if(a.size>1){
+          for(let i=0;i<2;i++){
+            const na=new Asteroid(a.x+rand(-6,6), a.y+rand(-6,6), a.size-1);
+            na.vx += rand(-40,40); na.vy += rand(-40,40);
+            asteroids.push(na);
+          }
+        }
+      }
+    }
+  }
+  const enemiesAtImpact = enemies.filter(e=>!e.dead);
+  for(const e of enemiesAtImpact){
+    if(dist2(m,e) < (m.splash+e.radius)*(m.splash+e.radius)){
+      e.hp -= m.damage;
+      if(e.hp<=0){
+        e.dead=true;
+        mission.enemiesDestroyed++;
+        spawnParticles(e.x,e.y, e.elite?'#ff3d81':'#ff7fae',18,0.5,200);
+      }
+    }
+  }
+}
+
+/* ---------------------------- asteroids ---------------------------- */
+function makeAsteroidShape(){
+  const n = Math.floor(rand(8,12));
+  const pts=[];
+  for(let i=0;i<n;i++) pts.push({a:(i/n)*Math.PI*2, r:rand(0.75,1.15)});
+  return pts;
+}
+class Asteroid{
+  constructor(x,y,size){
+    this.x=x; this.y=y; this.size=size;
+    this.radius = size===3?42: size===2?26:14;
+    this.hp = size;
+    const speed = rand(24,60) + (3-size)*22;
+    const dir = rand(0,Math.PI*2);
+    this.vx=Math.cos(dir)*speed; this.vy=Math.sin(dir)*speed;
+    this.rot=rand(0,Math.PI*2); this.rotSpeed=rand(-1,1);
+    this.shape = makeAsteroidShape();
+    this.dead=false;
+  }
+  update(dt){
+    this.x = wrap(this.x+this.vx*dt, canvas.width);
+    this.y = wrap(this.y+this.vy*dt, canvas.height);
+    this.rot += this.rotSpeed*dt;
+  }
+}
+function spawnAsteroidAtEdge(){
+  const edge = Math.floor(rand(0,4));
+  let x,y;
+  if(edge===0){ x=rand(0,canvas.width); y=-40; }
+  else if(edge===1){ x=canvas.width+40; y=rand(0,canvas.height); }
+  else if(edge===2){ x=rand(0,canvas.width); y=canvas.height+40; }
+  else { x=-40; y=rand(0,canvas.height); }
+  const size = Math.random()<0.65 ? 3 : 2;
+  asteroids.push(new Asteroid(x,y,size));
+}
+function spawnSalvageCore(){
+  const a=rand(0,Math.PI*2), speed=rand(20,55);
+  const marginX=Math.min(32,canvas.width/2), marginY=Math.min(32,canvas.height/2);
+  salvageCores.push({
+    x:rand(marginX,canvas.width-marginX), y:rand(marginY,canvas.height-marginY),
+    vx:Math.cos(a)*speed, vy:Math.sin(a)*speed,
+    radius:11, life:16, pulse:rand(0,Math.PI*2),
+  });
+}
+function spawnRelayGate(){
+  const marginX=Math.min(90,canvas.width/2), marginY=Math.min(90,canvas.height/2);
+  let x=rand(marginX,canvas.width-marginX), y=rand(marginY,canvas.height-marginY);
+  for(let i=0;i<12 && dist2(ship,{x,y})<220*220;i++){
+    x=rand(marginX,canvas.width-marginX);
+    y=rand(marginY,canvas.height-marginY);
+  }
+  return {x,y,radius:30,pulse:rand(0,Math.PI*2)};
+}
+
+/* ---------------------------- enemies ---------------------------- */
+class Enemy{
+  // bossConfig is optional — when present (from a mission's `bossConfig`), it fully overrides
+  // radius/hp/speed/fireInterval/bulletSpeed/burstCount so boss stats live in mission data,
+  // not in this class. Normal/elite enemies are unaffected and behave exactly as before.
+  constructor(x,y,elite,bossConfig){
+    this.x=x; this.y=y; this.elite=!!elite; this.boss=!!bossConfig;
+    if(this.boss){
+      this.radius = bossConfig.radius;
+      this.hp = bossConfig.hp;
+      this.speed = bossConfig.speed;
+      this.fireInterval = bossConfig.fireInterval;
+      this.bulletSpeed = bossConfig.bulletSpeed;
+      this.burstCount = bossConfig.burstCount||1;
+    } else {
+      this.radius = this.elite?24:18;
+      this.hp = this.elite?5:2;
+      this.speed = this.elite?150:95;
+      this.fireInterval = this.elite?0.8:1.5;
+      this.bulletSpeed = this.elite?380:300;
+      this.burstCount = 1;
+    }
+    this.fireTimer = rand(0.4,this.fireInterval);
+    this.angle=0;
+    this.dead=false;
+  }
+  update(dt,target){
+    const dx=wrapDelta(this.x,target.x,canvas.width);
+    const dy=wrapDelta(this.y,target.y,canvas.height);
+    const d=Math.hypot(dx,dy)||1;
+    this.angle = Math.atan2(dx,-dy);
+    const desired=220;
+    let mx=0,my=0;
+    if(d>desired+40){ mx=dx/d; my=dy/d; }
+    else if(d<desired-40){ mx=-dx/d; my=-dy/d; }
+    this.x = wrap(this.x+mx*this.speed*dt, canvas.width);
+    this.y = wrap(this.y+my*this.speed*dt, canvas.height);
+
+    this.fireTimer -= dt;
+    if(this.fireTimer<=0 && d<560){
+      this.fireTimer = this.fireInterval*rand(0.85,1.15);
+      if(this.burstCount<=1){
+        // original single-shot behavior, unchanged for normal/elite enemies
+        const spread=(Math.random()-0.5)*0.18;
+        enemyBullets.push(new Bullet(this.x,this.y,this.angle+spread,this.bulletSpeed,1));
+      } else {
+        // boss volley: fan `burstCount` shots evenly across a fixed arc (radians).
+        // Tune ARC to make bursts feel tighter or wider — it's independent of shot count.
+        const ARC = 0.5;
+        for(let i=0;i<this.burstCount;i++){
+          const t = (i/(this.burstCount-1)) - 0.5; // -0.5..0.5 spread across the burst
+          const spread = t*ARC + (Math.random()-0.5)*0.05;
+          enemyBullets.push(new Bullet(this.x,this.y,this.angle+spread,this.bulletSpeed,1));
+        }
+      }
+    }
+  }
+}
+function spawnEnemyAtEdge(elite,bossConfig){
+  const edge = Math.floor(rand(0,4));
+  let x,y;
+  if(edge===0){ x=rand(0,canvas.width); y=-40; }
+  else if(edge===1){ x=canvas.width+40; y=rand(0,canvas.height); }
+  else if(edge===2){ x=rand(0,canvas.width); y=canvas.height+40; }
+  else { x=-40; y=rand(0,canvas.height); }
+  enemies.push(new Enemy(x,y,elite,bossConfig));
+}
+
+/* ---------------------------- particles ---------------------------- */
+class Particle{
+  constructor(x,y,color,speed,angle,life){
+    this.x=x; this.y=y; this.color=color;
+    this.vx=Math.cos(angle)*speed; this.vy=Math.sin(angle)*speed;
+    this.life=life; this.maxLife=life;
+  }
+  update(dt){
+    this.x+=this.vx*dt; this.y+=this.vy*dt;
+    this.vx*=0.94; this.vy*=0.94;
+    this.life-=dt;
+  }
+}
+function spawnParticles(x,y,color,count,lifeBase,speedBase){
+  lifeBase = lifeBase||0.5; speedBase = speedBase||140;
+  for(let i=0;i<count;i++){
+    const a=rand(0,Math.PI*2);
+    particles.push(new Particle(x,y,color,rand(speedBase*0.3,speedBase),a,rand(lifeBase*0.5,lifeBase)));
+  }
+}
+
+/* ---------------------------- ship instance ---------------------------- */
+const ship = new Ship();
+
+/* ---------------------------- mission lifecycle ---------------------------- */
+function objectiveText(m){
+  if(m.type==='asteroids') return `Destroy ${m.target} asteroids`;
+  if(m.type==='enemies') return `Destroy ${m.target} enemy ships${m.timeLimit?` within ${m.timeLimit}s`:''}`;
+  if(m.type==='survive') return `Survive ${m.target} seconds`;
+  if(m.type==='salvage') return `Recover ${m.target} signal cores`;
+  if(m.type==='relay') return `Fly through ${m.target} navigation gates${m.timeLimit?` within ${m.timeLimit}s`:''}`;
+  if(m.type==='boss') return `Destroy the ${m.bossName||'enemy flagship'}`;
+  if(m.type==='combo') return `Destroy ${m.comboTargets.enemies} enemy ships AND ${m.comboTargets.asteroids} asteroids`;
+}
+function objectiveLabel(m){
+  if(m.type==='asteroids') return `ASTEROIDS DESTROYED — ${mission.asteroidsDestroyed}/${m.target}`;
+  if(m.type==='enemies') return `ENEMIES DESTROYED — ${mission.enemiesDestroyed}/${m.target}`;
+  if(m.type==='survive') return `SURVIVE — ${Math.min(mission.timeElapsed,m.target).toFixed(0)}/${m.target}s`;
+  if(m.type==='salvage') return `SIGNAL CORES RECOVERED — ${mission.salvageRecovered}/${m.target}`;
+  if(m.type==='relay') return `NAVIGATION GATES — ${mission.relayPassed}/${m.target}`;
+  if(m.type==='boss'){
+    // find the live boss to read its current hp; if it's already dead, show 0
+    const boss = enemies.find(e=>e.boss && !e.dead);
+    const hp = boss ? Math.max(0,Math.ceil(boss.hp)) : 0;
+    return `${(m.bossName||'FLAGSHIP').toUpperCase()} — ${mission.bossesDefeated}/${mission.bossCount} DEFEATED · INTEGRITY ${hp}/${m.bossConfig.hp}`;
+  }
+  if(m.type==='combo') return `ENEMIES ${mission.enemiesDestroyed}/${m.comboTargets.enemies} · ASTEROIDS ${mission.asteroidsDestroyed}/${m.comboTargets.asteroids}`;
+}
+
+function launchMission(id){
+  const m = MISSIONS.find(mm=>mm.id===id);
+  bullets.length=0; enemyBullets.length=0; missiles.length=0; mines.length=0; asteroids.length=0; enemies.length=0; particles.length=0; salvageCores.length=0;
+  ship.reset();
+  const hullLvl = UPGRADE_TRACKS.hull.levels[game.upgrades.hull];
+  mission = {
+    id:m.id, type:m.type, target:m.target, timeLimit:m.timeLimit, spawn:m.spawn,
+    bossConfig:m.bossConfig||null,       // only used when type==='boss'
+    comboTargets:m.comboTargets||null,   // only used when type==='combo'
+    specialWeapons:m.specialWeapons||null,
+    timeElapsed:0, asteroidsDestroyed:0, enemiesDestroyed:0, salvageRecovered:0,
+    relayPassed:0, relayGate:null,
+    asteroidTimer:rand(0.4,1.0), enemyTimer:rand(0.8,1.6), salvageTimer:2,
+    bossCount:m.bossCount||1, bossesSpawned:0, bossesDefeated:0, bossSpawnTimer:1,
+    lives:hullLvl.maxLives, ended:false,
+  };
+  if(m.type==='relay') mission.relayGate = spawnRelayGate();
+  game.state='mission';
+  showScreen(null);
+  updateHUD();
+}
+
+function endMission(success, reason){
+  if(!mission || mission.ended) return;
+  mission.ended = true;
+  const m = MISSIONS.find(mm=>mm.id===mission.id);
+  let creditsEarned=0;
+  if(success){
+    creditsEarned = m.reward;
+    game.credits += creditsEarned;
+    game.completedMissions.add(m.id);
+    const idx = MISSIONS.findIndex(mm=>mm.id===m.id);
+    if(idx+1 < MISSIONS.length) game.unlockedMissionIndex = Math.max(game.unlockedMissionIndex, idx+1);
+    saveProgress(); // fire-and-forget: don't block the end screen on a network round trip
+  }
+  game.lastEndResult = {success, missionId:m.id, missionName:m.name, creditsEarned, reason};
+  game.state='end';
+  showScreen('end');
+  renderEndScreen();
+}
+
+function handleEscape(){
+  if(game.state==='mission'){
+    endMission(false,'aborted');
+  } else if(game.state==='arena'){
+    exitArena();
+  }
+}
+
+function updateMission(dt){
+  mission.timeElapsed += dt;
+
+  if(mission.timeLimit && mission.type!=='survive' && mission.timeElapsed>=mission.timeLimit){
+    endMission(false,'time'); return;
+  }
+
+  ship.update(dt);
+  if(!ship.alive){ endMission(false,'destroyed'); return; }
+
+  let intervalScale=1;
+  if(mission.spawn.ramp) intervalScale = Math.max(0.45, 1 - mission.timeElapsed/180);
+
+  // Boss encounters spawn one at a time, with a short breather between stages.
+  if(mission.type==='boss' && mission.bossesSpawned<mission.bossCount){
+    const bossAlive = enemies.some(e=>e.boss && !e.dead);
+    if(!bossAlive){
+      mission.bossSpawnTimer -= dt;
+      if(mission.bossSpawnTimer<=0){
+        spawnEnemyAtEdge(false, mission.bossConfig);
+        mission.bossesSpawned++;
+        mission.bossSpawnTimer = 6;
+      }
+    }
+  }
+
+  if(mission.spawn.asteroidInterval!==Infinity){
+    mission.asteroidTimer -= dt;
+    if(mission.asteroidTimer<=0 && asteroids.length<26){
+      spawnAsteroidAtEdge();
+      mission.asteroidTimer = mission.spawn.asteroidInterval*intervalScale*rand(0.8,1.2);
+    }
+  }
+  if(mission.spawn.enemyInterval!==Infinity){
+    mission.enemyTimer -= dt;
+    if(mission.enemyTimer<=0 && enemies.length<8){
+      const elite = Math.random() < (mission.spawn.eliteChance||0);
+      spawnEnemyAtEdge(elite);
+      mission.enemyTimer = mission.spawn.enemyInterval*intervalScale*rand(0.8,1.2);
+    }
+  }
+  if(mission.spawn.salvageInterval){
+    mission.salvageTimer -= dt;
+    if(mission.salvageTimer<=0 && salvageCores.length<5){
+      spawnSalvageCore();
+      mission.salvageTimer = mission.spawn.salvageInterval*intervalScale*rand(0.85,1.15);
+    }
+  }
+
+  for(const b of bullets) b.update(dt);
+  for(const b of enemyBullets) b.update(dt);
+  for(const m of missiles) m.update(dt);
+  for(const m of mines) m.update(dt);
+  for(const a of asteroids) a.update(dt);
+  for(const e of enemies) e.update(dt,ship);
+  for(const p of particles) p.update(dt);
+  for(const core of salvageCores){
+    core.x=wrap(core.x+core.vx*dt,canvas.width);
+    core.y=wrap(core.y+core.vy*dt,canvas.height);
+    core.life-=dt;
+    core.pulse+=dt;
+    if(dist2(core,ship)<(core.radius+ship.radius)*(core.radius+ship.radius)){
+      core.life=0;
+      mission.salvageRecovered++;
+      spawnParticles(core.x,core.y,'#4ff0ff',12,0.45,150);
+    }
+  }
+  if(mission.type==='relay' && mission.relayGate){
+    mission.relayGate.pulse += dt;
+    if(dist2(ship,mission.relayGate)<mission.relayGate.radius*mission.relayGate.radius){
+      mission.relayPassed++;
+      mission.relayGate = mission.relayPassed<mission.target ? spawnRelayGate() : null;
+      spawnParticles(ship.x,ship.y,'#4ff0ff',14,0.45,150);
+      shake(3);
+    }
+  }
+
+  // player bullets vs asteroids
+  for(const b of bullets){
+    if(b.life<=0) continue;
+    for(const a of asteroids){
+      if(a.dead) continue;
+      if(dist2(b,a) < (b.radius+a.radius)*(b.radius+a.radius)){
+        a.hp -= b.damage; b.life=0;
+        spawnParticles(b.x,b.y,'#9fb3d9',6,0.3,120);
+        if(a.hp<=0){
+          a.dead=true;
+          mission.asteroidsDestroyed++;
+          spawnParticles(a.x,a.y,'#c9d6ea',14,0.5,180);
+          if(a.size>1){
+            for(let i=0;i<2;i++){
+              const na=new Asteroid(a.x+rand(-6,6), a.y+rand(-6,6), a.size-1);
+              na.vx += rand(-40,40); na.vy += rand(-40,40);
+              asteroids.push(na);
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+  // player bullets vs enemies
+  for(const b of bullets){
+    if(b.life<=0) continue;
+    for(const e of enemies){
+      if(e.dead) continue;
+      if(dist2(b,e) < (b.radius+e.radius)*(b.radius+e.radius)){
+        e.hp -= b.damage; b.life=0;
+        spawnParticles(b.x,b.y,'#ff9fc3',6,0.3,120);
+        if(e.hp<=0){
+          e.dead=true;
+          mission.enemiesDestroyed++;
+          if(e.boss) mission.bossesDefeated++;
+          spawnParticles(e.x,e.y, e.boss?'#4dff9f':(e.elite?'#ff3d81':'#ff7fae'), e.boss?40:20, e.boss?0.9:0.6, e.boss?260:200);
+          shake(e.boss?12:(e.elite?6:3));
+        }
+        break;
+      }
+    }
+  }
+  // enemy bullets vs player
+  for(const b of enemyBullets){
+    if(b.life<=0) continue;
+    if(dist2(b,ship) < (b.radius+ship.radius)*(b.radius+ship.radius)){
+      b.life=0; ship.hit();
+    }
+  }
+  // asteroids vs player
+  for(const a of asteroids){
+    if(a.dead) continue;
+    if(dist2(a,ship) < (a.radius+ship.radius)*(a.radius+ship.radius)){
+      a.dead=true;
+      spawnParticles(a.x,a.y,'#c9d6ea',14,0.5,180);
+      ship.hit();
+    }
+  }
+  // enemies vs player (contact)
+  for(const e of enemies){
+    if(e.dead) continue;
+    if(dist2(e,ship) < (e.radius+ship.radius)*(e.radius+ship.radius)){
+      ship.hit();
+      // Bosses are built to take sustained weapon fire, not die to a single ram — a ram just
+      // chips a flat amount of hp off instead of an instant kill. RAM_DAMAGE_BOSS is the only
+      // knob to tune here; 9999 below guarantees normal/elite enemies still die instantly,
+      // exactly matching the old (pre-boss) behavior.
+      const RAM_DAMAGE_BOSS = 3;
+      e.hp -= e.boss ? RAM_DAMAGE_BOSS : 9999;
+      if(e.hp<=0){
+        e.dead=true;
+        mission.enemiesDestroyed++;
+        if(e.boss) mission.bossesDefeated++;
+        spawnParticles(e.x,e.y, e.boss?'#4dff9f':'#ff3d81', e.boss?40:20, e.boss?0.9:0.6, e.boss?260:200);
+        if(e.boss) shake(12);
+      }
+    }
+  }
+  // missiles vs asteroids/enemies (detonate on contact or expiry)
+  for(const m of missiles){
+    if(m.exploded) continue;
+    let hit=false;
+    for(const a of asteroids){ if(!a.dead && dist2(m,a) < (m.radius+a.radius)*(m.radius+a.radius)){ hit=true; break; } }
+    if(!hit) for(const e of enemies){ if(!e.dead && dist2(m,e) < (m.radius+e.radius)*(m.radius+e.radius)){ hit=true; break; } }
+    if(hit || m.life<=0){ m.exploded=true; explodeMissile(m); }
+  }
+  // mines: only trigger once armed, then detonate the instant a hostile comes within splash
+  // range — or silently time out at MINE_MAX_LIFE if nothing ever does.
+  for(const m of mines){
+    if(m.exploded) continue;
+    let triggered = false;
+    if(m.armed){
+      for(const a of asteroids){ if(!a.dead && dist2(m,a) < (m.splash+a.radius)*(m.splash+a.radius)){ triggered=true; break; } }
+      if(!triggered) for(const e of enemies){ if(!e.dead && dist2(m,e) < (m.splash+e.radius)*(m.splash+e.radius)){ triggered=true; break; } }
+    }
+    if(triggered || m.life<=0){ m.exploded=true; explodeMissile(m); } // same splash logic as a missile
+  }
+
+  filterInPlace(bullets, b=>b.life>0);
+  filterInPlace(enemyBullets, b=>b.life>0);
+  filterInPlace(missiles, m=>!m.exploded);
+  filterInPlace(mines, m=>!m.exploded);
+  filterInPlace(asteroids, a=>!a.dead);
+  filterInPlace(enemies, e=>!e.dead);
+  filterInPlace(salvageCores, core=>core.life>0);
+  filterInPlace(particles, p=>p.life>0);
+
+  if(mission.ended) return;
+  if(mission.type==='asteroids' && mission.asteroidsDestroyed>=mission.target){ endMission(true); return; }
+  if(mission.type==='enemies' && mission.enemiesDestroyed>=mission.target){ endMission(true); return; }
+  if(mission.type==='survive' && mission.timeElapsed>=mission.target){ endMission(true); return; }
+  if(mission.type==='salvage' && mission.salvageRecovered>=mission.target){ endMission(true); return; }
+  if(mission.type==='relay' && mission.relayPassed>=mission.target){ endMission(true); return; }
+  if(mission.type==='boss' && mission.bossesDefeated>=mission.bossCount){ endMission(true); return; }
+  if(mission.type==='combo' && mission.enemiesDestroyed>=mission.comboTargets.enemies && mission.asteroidsDestroyed>=mission.comboTargets.asteroids){ endMission(true); return; }
+
+  updateHUD();
+}
+
+/* ---------------------------- rendering ---------------------------- */
+function drawShip(s){
+  ctx.save();
+  ctx.translate(s.x,s.y);
+  ctx.rotate(s.angle);
+  const flashing = s.invulnTimer>0 && Math.floor(s.invulnTimer*10)%2===0;
+  ctx.globalAlpha = flashing?0.35:1;
+  ctx.strokeStyle='#4ff0ff';
+  ctx.shadowColor='#4ff0ff'; ctx.shadowBlur=12;
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(0,-16);
+  ctx.lineTo(10,12);
+  ctx.lineTo(0,6);
+  ctx.lineTo(-10,12);
+  ctx.closePath();
+  ctx.stroke();
+  if(s.thrusting){
+    ctx.strokeStyle='#ffb84d'; ctx.shadowColor='#ffb84d';
+    ctx.beginPath();
+    ctx.moveTo(-5,10); ctx.lineTo(0,10+rand(8,18)); ctx.lineTo(5,10);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  const shieldLvl = s.stats.shield;
+  if(shieldLvl.maxCharges>0 && s.shield>0){
+    ctx.save();
+    ctx.translate(s.x,s.y);
+    const flashBoost = s.shieldFlash>0 ? s.shieldFlash/0.3 : 0;
+    ctx.globalAlpha = 0.2 + 0.5*(s.shield/shieldLvl.maxCharges) + flashBoost*0.4;
+    ctx.strokeStyle='#7fd7ff';
+    ctx.shadowColor='#7fd7ff'; ctx.shadowBlur=14;
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.arc(0,0,22,0,Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+// Color comes from the missile itself (set from the firing weapon's WEAPONS[...].color — see
+// fireWeaponShots/Missile/RemoteMissile) so every explosive weapon reads its own hue here with
+// zero per-weapon branching; `m.color` always has a value thanks to each constructor's default.
+function drawMissile(m){
+  ctx.save();
+  ctx.translate(m.x,m.y); ctx.rotate(m.angle);
+  ctx.strokeStyle=m.color; ctx.shadowColor=m.color; ctx.shadowBlur=10; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(0,-9); ctx.lineTo(4,7); ctx.lineTo(0,4); ctx.lineTo(-4,7);
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+// Dim gray while arming, pulsing in the mine's own weapon color once live. `m.armed` is
+// undefined on a cosmetic RemoteMine (someone else's), which is treated the same as "already
+// armed" here — we don't know their real arm timer and it's not worth a network message just
+// for this visual.
+function drawMine(m){
+  ctx.save();
+  ctx.translate(m.x,m.y);
+  const armed = m.armed!==false;
+  const pulse = armed ? 0.6+0.4*Math.sin((m.pulse||0)*8) : 1;
+  ctx.globalAlpha = armed ? pulse : 0.5;
+  ctx.strokeStyle = armed ? m.color : '#8a93a8';
+  ctx.shadowColor = armed ? m.color : '#8a93a8'; ctx.shadowBlur = armed?10:4;
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(0,-7); ctx.lineTo(7,0); ctx.lineTo(0,7); ctx.lineTo(-7,0);
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+function drawAsteroid(a){
+  ctx.save();
+  ctx.translate(a.x,a.y); ctx.rotate(a.rot);
+  ctx.strokeStyle='#9fb3d9'; ctx.shadowColor='#4ff0ff'; ctx.shadowBlur=6; ctx.lineWidth=1.5;
+  ctx.beginPath();
+  a.shape.forEach((p,i)=>{
+    const x=Math.cos(p.a)*p.r*a.radius, y=Math.sin(p.a)*p.r*a.radius;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+function drawSalvageCore(core){
+  ctx.save();
+  ctx.translate(core.x,core.y);
+  const pulse=0.65+0.35*Math.sin(core.pulse*6);
+  ctx.globalAlpha=0.65+0.35*pulse;
+  ctx.strokeStyle='#4ff0ff'; ctx.shadowColor='#4ff0ff'; ctx.shadowBlur=12*pulse; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(0,-core.radius); ctx.lineTo(core.radius,0); ctx.lineTo(0,core.radius); ctx.lineTo(-core.radius,0);
+  ctx.closePath(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+}
+function drawRelayGate(gate){
+  ctx.save();
+  ctx.translate(gate.x,gate.y);
+  ctx.rotate(gate.pulse*0.45);
+  const pulse=0.75+0.25*Math.sin(gate.pulse*5);
+  ctx.globalAlpha=pulse;
+  ctx.strokeStyle='#ffb84d'; ctx.shadowColor='#ffb84d'; ctx.shadowBlur=14; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.arc(0,0,gate.radius+Math.sin(gate.pulse*3)*3,0,Math.PI*2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-gate.radius*0.7,0); ctx.lineTo(0,-gate.radius*0.7);
+  ctx.lineTo(gate.radius*0.7,0); ctx.lineTo(0,gate.radius*0.7);
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+function drawEnemy(e){
+  ctx.save();
+  ctx.translate(e.x,e.y); ctx.rotate(e.angle);
+  const color = e.boss ? '#4dff9f' : (e.elite?'#ff3d81':'#ff7fae');
+  ctx.strokeStyle = color;
+  ctx.shadowColor = color; ctx.shadowBlur = e.boss?22:(e.elite?14:8);
+  ctx.lineWidth = e.boss?3.5:(e.elite?2.5:2);
+  if(e.boss){
+    // boss silhouette scales off its configured radius, so any bossConfig.radius still looks right
+    const w = e.radius*0.7, front = e.radius*0.78, back = -e.radius*0.67, notch = -e.radius*0.22;
+    ctx.beginPath();
+    ctx.moveTo(0,front); ctx.lineTo(w,back); ctx.lineTo(0,notch); ctx.lineTo(-w,back);
+    ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,e.radius*0.32,0,Math.PI*2); ctx.stroke(); // core ring, boss-only detail
+  } else {
+    const w = e.elite?16:11;
+    ctx.beginPath();
+    ctx.moveTo(0,14); ctx.lineTo(w,-12); ctx.lineTo(0,-4); ctx.lineTo(-w,-12);
+    ctx.closePath(); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawBullet(b,color){
+  ctx.save();
+  ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=8;
+  ctx.beginPath(); ctx.arc(b.x,b.y,b.radius,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawParticle(p){
+  ctx.save();
+  ctx.globalAlpha = Math.max(0,p.life/p.maxLife);
+  ctx.fillStyle=p.color;
+  ctx.beginPath(); ctx.arc(p.x,p.y,1.6,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function render(dt){
+  ctx.fillStyle='#05070d';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  drawStars(dt);
+
+  if(game.state==='mission' && mission){
+    ctx.save();
+    if(shakeTime>0){
+      const s = shakeMag*(shakeTime/0.3);
+      ctx.translate(rand(-s,s), rand(-s,s));
+    }
+    for(const a of asteroids) drawAsteroid(a);
+    for(const core of salvageCores) drawSalvageCore(core);
+    if(mission.type==='relay' && mission.relayGate) drawRelayGate(mission.relayGate);
+    for(const e of enemies) drawEnemy(e);
+    for(const b of bullets) drawBullet(b,b.color);
+    for(const b of enemyBullets) drawBullet(b,'#ff3d81');
+    for(const m of missiles) drawMissile(m);
+    for(const m of mines) drawMine(m);
+    for(const p of particles) drawParticle(p);
+    if(ship.alive) drawShip(ship);
+    ctx.restore();
+  }
+
+  if(game.state==='arena' && arenaShip){
+    ctx.save();
+    if(shakeTime>0){
+      const s = shakeMag*(shakeTime/0.3);
+      ctx.translate(rand(-s,s), rand(-s,s));
+    }
+    for(const b of arenaBullets) drawBullet(b,b.color);
+    for(const b of remoteBullets) drawBullet(b,b.color);
+    for(const m of arenaMissiles) drawMissile(m);
+    for(const m of remoteMissiles) drawMissile(m);
+    for(const m of arenaMines) drawMine(m);
+    for(const m of remoteMines) drawMine(m);
+    for(const p of particles) drawParticle(p);
+    for(const rp of remotePlayers.values()) if(rp.alive) drawRemotePlayer(rp);
+    if(arenaShip.alive) drawShip(arenaShip);
+    ctx.restore();
+  }
+}
+
+/* ---------------------------- HUD ---------------------------- */
+function updateHUD(){
+  if(!mission) return;
+  const m = MISSIONS.find(mm=>mm.id===mission.id);
+  document.getElementById('hudObjective').textContent = objectiveLabel(m);
+  const maxLives = UPGRADE_TRACKS.hull.levels[game.upgrades.hull].maxLives;
+  document.getElementById('hudLives').innerHTML = Array.from({length:maxLives}).map((_,i)=>
+    `<span class="life-icon ${i<mission.lives?'':'spent'}">▲</span>`).join('');
+
+  const shieldLvl = UPGRADE_TRACKS.shield.levels[game.upgrades.shield];
+  const shieldRow = document.getElementById('hudShield');
+  if(shieldLvl.maxCharges>0){
+    shieldRow.classList.remove('hidden');
+    shieldRow.innerHTML = Array.from({length:shieldLvl.maxCharges}).map((_,i)=>
+      `<span class="shield-icon ${i<ship.shield?'':'spent'}">◆</span>`).join('');
+  } else {
+    shieldRow.classList.add('hidden');
+  }
+
+  const {primary,secondary} = ship.stats;
+  const secondaryRow = document.getElementById('hudMissile');
+  if(secondary){
+    secondaryRow.classList.remove('hidden');
+    const ready = ship.secondaryCooldown<=0;
+    secondaryRow.textContent = ready ? `${secondary.name.toUpperCase()} READY` : `${secondary.name.toUpperCase()} ${Math.ceil(ship.secondaryCooldown)}s`;
+    secondaryRow.classList.toggle('ready', ready);
+  } else {
+    secondaryRow.classList.add('hidden');
+  }
+  document.getElementById('hudHint').textContent = secondary
+    ? `W THRUST · A/D ROTATE · SPACE ${primary.name.toUpperCase()} · SHIFT ${secondary.name.toUpperCase()} · ESC ABORT`
+    : 'W THRUST · A/D ROTATE · SPACE FIRE · ESC ABORT';
+
+  const timerEl = document.getElementById('hudTimer');
+  if(m.type==='survive'){
+    timerEl.textContent = `${Math.max(0,Math.ceil(m.target-mission.timeElapsed))}s`;
+    timerEl.classList.remove('hidden');
+  } else if(m.timeLimit){
+    timerEl.textContent = `${Math.max(0,Math.ceil(m.timeLimit-mission.timeElapsed))}s`;
+    timerEl.classList.remove('hidden');
+  } else {
+    timerEl.classList.add('hidden');
+  }
+}
+
+/* ---------------------------- screens ---------------------------- */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  if(id) document.getElementById('screen-'+id).classList.add('active');
+  document.getElementById('hud').classList.toggle('hidden', game.state!=='mission');
+}
+
+function enterHangar(){
+  game.state='hangar';
+  showScreen('hangar');
+  renderHangar();
+}
+
+function renderHangar(){
+  document.getElementById('hangarCredits').textContent = `${game.credits} CR`;
+  const pilotTag = document.getElementById('pilotTag');
+  if(AUTH_ENABLED){
+    pilotTag.style.display = 'flex';
+    pilotTag.innerHTML = `<span>${guestMode ? 'Guest' : (currentUser && currentUser.email) || ''}</span>
+      <button id="signOutBtn" class="btn btn-small">${guestMode ? 'Sign In' : 'Sign Out'}</button>`;
+    document.getElementById('signOutBtn').addEventListener('click', authSignOut);
+  } else {
+    pilotTag.style.display = 'none';
+  }
+  renderMissionList();
+  renderMissionDetail();
+  renderUpgrades();
+  drawBlueprint();
+}
+
+function renderMissionList(){
+  const container = document.getElementById('missionList');
+  container.innerHTML = MISSIONS.map((m,i)=>{
+    const locked = i>game.unlockedMissionIndex;
+    const completed = game.completedMissions.has(m.id);
+    const selected = m.id===game.selectedMissionId;
+    return `<button class="mission-item ${selected?'selected':''} ${locked?'locked':''}" data-id="${m.id}" ${locked?'disabled':''}>
+      <span class="mission-num">${String(i+1).padStart(2,'0')}</span>
+      <span class="mission-name">${m.name}</span>
+      <span class="mission-status">${completed?'✓ CLEARED':(locked?'LOCKED':'')}</span>
+    </button>`;
+  }).join('');
+  container.querySelectorAll('.mission-item').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      game.selectedMissionId = btn.dataset.id;
+      renderHangar();
+    });
+  });
+}
+
+function renderMissionDetail(){
+  const m = MISSIONS.find(mm=>mm.id===game.selectedMissionId) || MISSIONS[0];
+  const idx = MISSIONS.findIndex(mm=>mm.id===m.id);
+  const locked = idx>game.unlockedMissionIndex;
+  const el = document.getElementById('missionDetail');
+  el.innerHTML = `
+    <div class="detail-name">${m.name}</div>
+    <div class="detail-brief">${m.brief}</div>
+    <div class="detail-obj">OBJECTIVE — ${objectiveText(m)}</div>
+    <div class="detail-reward">REWARD — ${m.reward} CR</div>
+    <button id="launchBtn" class="btn btn-primary" ${locked?'disabled':''}>${locked?'LOCKED':'LAUNCH MISSION'}</button>
+  `;
+  if(!locked){
+    document.getElementById('launchBtn').addEventListener('click', ()=> launchMission(m.id));
+  }
+}
+
+function renderUpgrades(){
+  renderLoadout();
+  renderWeaponShop();
+  renderSystemUpgrades();
+}
+
+// Two slot pickers (Primary/Space, Secondary/Shift) showing every OWNED weapon as a clickable
+// chip; the chip matching what's currently equipped in that slot is highlighted. Secondary can
+// be cleared to "— None —"; primary always has to hold something since the ship needs a Space
+// weapon to be playable.
+function renderLoadout(){
+  const owned = game.upgrades.ownedWeapons;
+  const buildSlot = (slot, label, allowEmpty)=>{
+    const equippedId = game.upgrades.equipped[slot];
+    const chips = owned.map(id=>{
+      const active = id===equippedId;
+      return `<button class="loadout-chip ${active?'active':''}" data-slot="${slot}" data-weapon="${id}"><span class="weapon-dot" style="--dot:${WEAPONS[id].color}"></span>${WEAPONS[id].name}</button>`;
+    }).join('');
+    const emptyChip = allowEmpty
+      ? `<button class="loadout-chip ${equippedId?'':'active'}" data-slot="${slot}" data-weapon="">— None —</button>`
+      : '';
+    return `<div class="loadout-slot">
+      <div class="loadout-slot-label">${label}</div>
+      <div class="loadout-chip-row">${chips}${emptyChip}</div>
+    </div>`;
+  };
+  const row = document.getElementById('loadoutRow');
+  row.innerHTML = buildSlot('primary', 'PRIMARY · SPACE', false) + buildSlot('secondary', 'SECONDARY · SHIFT', true);
+  row.querySelectorAll('.loadout-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=> equipWeapon(btn.dataset.slot, btn.dataset.weapon || null));
+  });
+}
+
+// One-time-purchase catalog — every entry in WEAPONS shows either a Buy button (cost, or
+// disabled if you can't afford it) or an OWNED tag once purchased. Buying doesn't auto-equip;
+// use the Loadout chips above to actually assign it to a slot.
+function renderWeaponShop(){
+  const grid = document.getElementById('weaponShopGrid');
+  grid.innerHTML = Object.keys(WEAPONS).map(id=>{
+    const w = WEAPONS[id];
+    const owned = game.upgrades.ownedWeapons.includes(id);
+    return `<div class="upgrade-card weapon-card ${owned?'owned':''}">
+      <div class="upgrade-name"><span class="weapon-dot" style="--dot:${w.color}"></span>${w.name}</div>
+      <div class="upgrade-stat">${w.desc}</div>
+      ${owned
+        ? `<div class="upgrade-next">OWNED</div>`
+        : `<div class="upgrade-next">Cost: <span class="upgrade-cost">${w.cost} CR</span></div>
+           <button class="btn btn-small" data-weapon="${id}" ${game.credits<w.cost?'disabled':''}>Buy</button>`
+      }
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('button[data-weapon]').forEach(btn=>{
+    btn.addEventListener('click', ()=> buyWeapon(btn.dataset.weapon));
+  });
+}
+
+// The old leveled-track grid, unchanged in behavior — just renamed and now only ever iterates
+// engine/hull/shield since weapon/missiles were pulled out of UPGRADE_TRACKS entirely.
+function renderSystemUpgrades(){
+  const grid = document.getElementById('upgradeGrid');
+  grid.innerHTML = Object.keys(UPGRADE_TRACKS).map(key=>{
+    const track = UPGRADE_TRACKS[key];
+    const lvl = game.upgrades[key];
+    const maxed = lvl>=track.levels.length-1;
+    const cur = track.levels[lvl];
+    const next = maxed?null:track.levels[lvl+1];
+    const pips = track.levels.map((_,i)=>`<span class="pip ${i<=lvl?'filled':''}"></span>`).join('');
+    return `<div class="upgrade-card">
+      <div class="upgrade-name">${track.name}</div>
+      <div class="pip-row">${pips}</div>
+      <div class="upgrade-stat">${track.desc(cur)}</div>
+      ${maxed
+        ? `<div class="upgrade-next">MAX LEVEL</div>`
+        : `<div class="upgrade-next">Next: ${track.desc(next)} — <span class="upgrade-cost">${next.cost} CR</span></div>
+           <button class="btn btn-small" data-track="${key}" ${game.credits<next.cost?'disabled':''}>Upgrade</button>`
+      }
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('button[data-track]').forEach(btn=>{
+    btn.addEventListener('click', ()=> buyUpgrade(btn.dataset.track));
+  });
+}
+
+function buyUpgrade(track){
+  const cur = game.upgrades[track];
+  const levels = UPGRADE_TRACKS[track].levels;
+  if(cur+1>=levels.length) return;
+  const cost = levels[cur+1].cost;
+  if(game.credits<cost) return;
+  game.credits -= cost;
+  game.upgrades[track] = cur+1;
+  saveProgress();
+  renderHangar();
+}
+
+function buyWeapon(id){
+  const w = WEAPONS[id];
+  if(!w || game.upgrades.ownedWeapons.includes(id) || game.credits<w.cost) return;
+  game.credits -= w.cost;
+  game.upgrades.ownedWeapons.push(id);
+  saveProgress();
+  renderHangar();
+}
+
+// Equips `weaponId` (or null) to the given slot. Primary can never be cleared to null — the
+// ship always needs something bound to Space. If the weapon being equipped is already sitting
+// in the OTHER slot, it's moved (swapped) rather than duplicated into both slots at once; if
+// that swap would leave primary empty (e.g. equipping your only other weapon, currently primary,
+// into secondary while secondary is empty) the request is silently ignored rather than leaving
+// the ship without a primary weapon.
+function equipWeapon(slot, weaponId){
+  if(slot==='primary' && !weaponId) return;
+  if(weaponId && !game.upgrades.ownedWeapons.includes(weaponId)) return;
+  const otherSlot = slot==='primary' ? 'secondary' : 'primary';
+  if(weaponId && game.upgrades.equipped[otherSlot]===weaponId){
+    const displaced = game.upgrades.equipped[slot];
+    if(otherSlot==='primary' && !displaced) return; // would leave primary empty — refuse
+    game.upgrades.equipped[otherSlot] = displaced;
+  }
+  game.upgrades.equipped[slot] = weaponId;
+  saveProgress();
+  renderHangar();
+}
+
+function drawBlueprint(){
+  const c = document.getElementById('blueprintCanvas');
+  const bctx = c.getContext('2d');
+  const w=c.width, h=c.height;
+  bctx.clearRect(0,0,w,h);
+
+  bctx.strokeStyle='rgba(79,240,255,0.06)'; bctx.lineWidth=1;
+  for(let gx=0; gx<w; gx+=20){ bctx.beginPath(); bctx.moveTo(gx,0); bctx.lineTo(gx,h); bctx.stroke(); }
+  for(let gy=0; gy<h; gy+=20){ bctx.beginPath(); bctx.moveTo(0,gy); bctx.lineTo(w,gy); bctx.stroke(); }
+
+  const cx=w/2, cy=h/2+6;
+  const hullLvl=game.upgrades.hull, engLvl=game.upgrades.engine;
+
+  const engR = 16+engLvl*7;
+  const grad = bctx.createRadialGradient(cx,cy+46,2,cx,cy+46,engR);
+  grad.addColorStop(0,'rgba(255,184,77,0.9)');
+  grad.addColorStop(1,'rgba(255,184,77,0)');
+  bctx.fillStyle=grad;
+  bctx.beginPath(); bctx.arc(cx,cy+46,engR,0,Math.PI*2); bctx.fill();
+
+  bctx.save();
+  bctx.shadowColor='#4ff0ff'; bctx.shadowBlur=10+hullLvl*3;
+  bctx.strokeStyle='#4ff0ff'; bctx.lineWidth=2+hullLvl*0.7;
+  bctx.beginPath();
+  bctx.moveTo(cx,cy-56);
+  bctx.lineTo(cx+34,cy+42);
+  bctx.lineTo(cx+14,cy+30);
+  bctx.lineTo(cx-14,cy+30);
+  bctx.lineTo(cx-34,cy+42);
+  bctx.closePath();
+  bctx.stroke();
+  bctx.restore();
+
+  for(let i=0;i<hullLvl;i++){
+    bctx.strokeStyle=`rgba(79,240,255,${0.25+i*0.15})`; bctx.lineWidth=1.5;
+    bctx.beginPath();
+    bctx.arc(cx,cy-2,46+i*10,Math.PI*0.15,Math.PI*0.85);
+    bctx.stroke();
+  }
+
+  const wingSpots=[[cx-34,cy+42],[cx+34,cy+42],[cx-14,cy+30],[cx+14,cy+30]];
+  // No more single 'weapon level' to light these up by — instead they fill in as the player
+  // buys more weapons from the shop, same visual idea (a fuller-looking arsenal) with a shape
+  // that fits the shop model.
+  const ownedCount = Math.min(game.upgrades.ownedWeapons.length, wingSpots.length);
+  for(let i=0;i<wingSpots.length;i++){
+    const lit = i<ownedCount;
+    bctx.fillStyle = lit?'#ff3d81':'rgba(255,61,129,0.15)';
+    bctx.shadowColor='#ff3d81'; bctx.shadowBlur = lit?8:0;
+    bctx.beginPath(); bctx.arc(wingSpots[i][0],wingSpots[i][1],4,0,Math.PI*2); bctx.fill();
+  }
+  bctx.shadowBlur=0;
+
+  const shieldTrack = UPGRADE_TRACKS.shield.levels[game.upgrades.shield];
+  if(shieldTrack.maxCharges>0){
+    bctx.save();
+    bctx.strokeStyle='rgba(127,215,255,0.5)';
+    bctx.shadowColor='#7fd7ff'; bctx.shadowBlur=10;
+    bctx.lineWidth=1.5;
+    bctx.beginPath();
+    bctx.arc(cx,cy-2,58,0,Math.PI*2);
+    bctx.stroke();
+    bctx.restore();
+  }
+
+  // Rear pod visual now reflects whatever's actually equipped to the secondary slot, rather
+  // than a fixed missile track — doubled up if that weapon fires more than one projectile.
+  const secondaryId = game.upgrades.equipped.secondary;
+  if(secondaryId){
+    const secondaryW = WEAPONS[secondaryId];
+    const podSpots = secondaryW.count>1 ? [[cx-22,cy+16],[cx+22,cy+16]] : [[cx,cy+20]];
+    bctx.fillStyle='#ffb84d'; bctx.shadowColor='#ffb84d'; bctx.shadowBlur=8;
+    podSpots.forEach(([px,py])=>{ bctx.fillRect(px-4,py-3,8,6); });
+    bctx.shadowBlur=0;
+  }
+}
+
+function renderEndScreen(){
+  const r = game.lastEndResult;
+  const el = document.getElementById('screen-end');
+  let reasonText = 'MISSION COMPLETE';
+  if(!r.success){
+    if(r.reason==='time') reasonText='TIME EXPIRED';
+    else if(r.reason==='aborted') reasonText='MISSION ABORTED';
+    else reasonText='SHIP DESTROYED';
+  }
+  const titleEl = el.querySelector('.end-title');
+  titleEl.textContent = reasonText;
+  titleEl.className = 'end-title ' + (r.success?'success':'fail');
+  el.querySelector('.end-mission').textContent = r.missionName;
+  el.querySelector('.end-credits').textContent = r.success ? `+${r.creditsEarned} CR EARNED` : 'NO REWARD';
+}
+
+/* ---------------------------- boot / loop ---------------------------- */
+document.getElementById('startBtn').addEventListener('click', enterHangar);
+document.getElementById('arenaBtn').addEventListener('click', enterArena);
+document.getElementById('endHangarBtn').addEventListener('click', enterHangar);
+document.getElementById('authSignInBtn').addEventListener('click', authSignIn);
+document.getElementById('authSignUpBtn').addEventListener('click', authSignUp);
+document.getElementById('authGuestLink').addEventListener('click', authPlayAsGuest);
+// Let Enter submit the sign-in form from the password field instead of requiring a mouse click.
+document.getElementById('authPassword').addEventListener('keydown', e=>{
+  if(e.key==='Enter') authSignIn();
+});
+
+let lastTime=null;
+function loop(t){
+  if(lastTime===null) lastTime=t;
+  let dt=(t-lastTime)/1000; lastTime=t;
+  dt=Math.min(dt,0.05);
+
+  if(shakeTime>0) shakeTime=Math.max(0,shakeTime-dt);
+  if(game.state==='mission' && mission && !mission.ended) updateMission(dt);
+  if(game.state==='arena' && arenaShip) updateArena(dt);
+  render(dt);
+
+  requestAnimationFrame(loop);
+}
+
+// Decides the first screen the player sees: straight to the title screen if cloud save isn't
+// configured (see SUPABASE_URL/SUPABASE_KEY above), otherwise the login screen — unless a
+// Supabase session is already stored in this browser, in which case we sign them back in silently.
+async function boot(){
+  resize();
+  document.getElementById('arenaBtn').style.display = AUTH_ENABLED ? 'inline-block' : 'none';
+  requestAnimationFrame(loop); // start the render loop immediately so the starfield never stalls,
+                                // even while the (async) session check below is still in flight
+  if(!AUTH_ENABLED){
+    game.state = 'title';
+    showScreen('title');
+    return;
+  }
+  game.state = 'auth';
+  showScreen('auth');
+  const {data} = await supabaseClient.auth.getSession();
+  if(data.session) await onSignedIn(data.session.user);
+}
+boot();
+</script>
+</body>
+
+</html>
+<script async src="/.netlify/scripts/hud?variant=public" data-nf-variant="public" data-netlify-site-id="47dc36ec-e281-4093-8e2d-49a4e7429c86" data-app-host="app.netlify.com"></script>
